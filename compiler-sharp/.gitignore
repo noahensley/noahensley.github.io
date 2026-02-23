@@ -1,0 +1,21 @@
+# Build results
+[Bb]in/
+[Oo]bj/
+
+# Solution files
+*.sln
+
+# VS Code
+.vscode/
+
+# Build outputs
+*.exe
+*.dll
+*.pdb
+
+# User-specific files
+*.user
+
+# NuGet packages
+*.nupkg
+packages/

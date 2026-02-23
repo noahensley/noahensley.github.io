@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      Library so both compiler-sharp-cli (Exe) and compiler-sharp-wasm (WASM)
+      can reference this project without hitting NETSDK1150.
+      The CLI entry point lives in compiler-sharp-cli/Program.cs.
+    -->
+    <OutputType>Library</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

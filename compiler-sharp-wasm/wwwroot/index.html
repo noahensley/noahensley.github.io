@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Noah Hensley — Compiler-Sharp</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;600;700&family=Barlow:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:      #080b0f;
+  --bg2:     #0c1017;
+  --bg3:     #111620;
+  --panel:   #0e1319;
+  --border:  #1a2235;
+  --border2: #202d42;
+  --green:   #39d98a;
+  --gdim:    #0f2e1e;
+  --cyan:    #38bdf8;
+  --cdim:    #08253a;
+  --amber:   #f59e0b;
+  --red:     #f87171;
+  --purple:  #a78bfa;
+  --muted:   #3a4a60;
+  --text:    #c8d4e3;
+  --dim:     #5a6f8a;
+}
+
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'IBM Plex Mono',monospace;
+  font-size:14px;
+  line-height:1.6;
+  overflow-x:hidden;
+}
+
+/* scanlines */
+body::after{
+  content:'';
+  position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.04) 3px,rgba(0,0,0,0.04) 4px);
+  pointer-events:none;
+  z-index:9999;
+}
+
+/* NAV */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  background:rgba(8,11,15,0.9);
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  height:50px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 2rem;
+}
+.nav-logo{
+  font-family:'Barlow',sans-serif;
+  font-weight:800;font-size:1rem;
+  color:var(--green);letter-spacing:0.02em;
+}
+.nav-logo em{color:var(--dim);font-style:normal;}
+nav ul{list-style:none;display:flex;gap:1.8rem;}
+nav a{color:var(--dim);text-decoration:none;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;transition:color .2s;}
+nav a:hover{color:var(--green);}
+
+/* HERO */
+#hero{
+  min-height:100vh;display:flex;align-items:center;
+  padding:6rem 2rem 4rem;
+  position:relative;overflow:hidden;
+}
+.grid-bg{
+  position:absolute;inset:0;
+  background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size:44px 44px;
+  opacity:.25;
+  mask-image:radial-gradient(ellipse 70% 70% at 40% 50%,black 20%,transparent 100%);
+}
+.hero-glow{
+  position:absolute;width:700px;height:500px;
+  background:radial-gradient(ellipse,rgba(57,217,138,.05) 0%,transparent 70%);
+  top:50%;left:35%;transform:translate(-50%,-50%);
+  pointer-events:none;
+}
+.hero-inner{max-width:900px;margin:0 auto;position:relative;z-index:1;}
+
+.eyebrow{
+  display:inline-flex;align-items:center;gap:.6rem;
+  background:var(--gdim);border:1px solid rgba(57,217,138,.2);
+  color:var(--green);font-size:.68rem;padding:.3rem .8rem;
+  margin-bottom:2rem;letter-spacing:.12em;text-transform:uppercase;
+}
+.eyebrow::before{content:'●';font-size:.45rem;animation:blink 2s step-end infinite;}
+
+h1{
+  font-family:'Barlow',sans-serif;font-weight:800;
+  font-size:clamp(2.4rem,5.5vw,4.2rem);
+  line-height:1.08;letter-spacing:-.02em;
+  margin-bottom:1.5rem;
+}
+h1 .g{color:var(--green);}
+h1 .d{color:var(--dim);}
+
+.hero-sub{
+  color:var(--dim);font-size:.88rem;line-height:1.9;
+  max-width:520px;margin-bottom:2.5rem;
+}
+
+.btns{display:flex;gap:1rem;flex-wrap:wrap;}
+.btn{
+  display:inline-flex;align-items:center;gap:.5rem;
+  padding:.65rem 1.3rem;font-family:'IBM Plex Mono',monospace;
+  font-size:.76rem;text-decoration:none;letter-spacing:.04em;
+  border-radius:2px;transition:all .2s;cursor:pointer;border:none;
+}
+.btn-p{background:var(--green);color:#080b0f;font-weight:700;}
+.btn-p:hover{background:#5de8a0;box-shadow:0 0 28px rgba(57,217,138,.3);}
+.btn-o{background:transparent;color:var(--dim);border:1px solid var(--border2);}
+.btn-o:hover{border-color:var(--green);color:var(--green);}
+
+/* VS Code chrome — shared by demo window */
+.vsc-chrome{
+  background:#3c3c3c;height:28px;
+  display:flex;align-items:center;padding:0 .6rem;gap:.5rem;
+}
+.vsc-title-text{flex:1;text-align:left;padding-left:10px;font-size:.7rem;color:#cccccc;letter-spacing:.01em;}
+.vsc-tabs{
+  background:#252526;display:flex;align-items:stretch;
+  border-bottom:1px solid #1e1e1e;min-height:34px;
+}
+.vsc-tab{
+  padding:0 1.1rem;font-size:.7rem;color:#969696;letter-spacing:.06em;
+  text-transform:uppercase;display:flex;align-items:center;
+  border-right:1px solid #3c3c3c;cursor:default;user-select:none;
+}
+.vsc-tab-active{color:#cccccc;background:#1e1e1e;border-top:1px solid #0078d4;}
+.vsc-tab-icons{padding:0 .7rem;font-size:.78rem;color:#969696;display:flex;align-items:center;gap:.5rem;cursor:default;}
+.vsc-shellbar{
+  background:#252526;border-bottom:1px solid #3c3c3c;
+  padding:.25rem .75rem;display:flex;align-items:center;gap:.4rem;
+}
+.vsc-shellname{color:#cccccc;font-size:.72rem;font-family:'IBM Plex Mono',monospace;}
+.vsc-run-btn{
+  margin-left:auto;
+  background:var(--green);color:#080b0f;
+  font-family:'IBM Plex Mono',monospace;font-size:.68rem;font-weight:700;
+  padding:.22rem .75rem;border:none;cursor:pointer;letter-spacing:.04em;transition:all .2s;
+}
+.vsc-run-btn:hover{background:#5de8a0;box-shadow:0 0 14px rgba(57,217,138,.3);}
+.vsc-shellicons{color:#969696;font-size:.8rem;}
+
+/* Hero stat strip */
+.hero-stats{
+  display:flex;gap:2.5rem;flex-wrap:wrap;
+  margin-top:2.5rem;padding-top:2rem;
+  border-top:1px solid var(--border);
+}
+.hstat{display:flex;flex-direction:column;gap:.2rem;}
+.hstat-v{font-family:'Barlow',sans-serif;font-weight:800;font-size:1.45rem;color:var(--green);line-height:1;}
+.hstat-l{font-size:.62rem;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;}
+
+/* AI callout inline note */
+.ai-note{
+  display:inline-flex;align-items:center;gap:.5rem;
+  margin-top:1rem;font-size:.72rem;color:var(--dim);
+  border-left:2px solid var(--border2);padding-left:.75rem;
+}
+.ai-note em{color:var(--text);font-style:normal;}
+
+/* SECTIONS */
+section{padding:5.5rem 2rem;}
+.inner{max-width:960px;margin:0 auto;}
+.slabel{
+  display:flex;align-items:center;gap:1rem;
+  margin-bottom:.8rem;font-size:.68rem;color:var(--dim);
+  text-transform:uppercase;letter-spacing:.12em;
+}
+.slabel::after{content:'';flex:1;height:1px;background:var(--border);max-width:180px;}
+.slabel .n{color:var(--green);}
+h2{
+  font-family:'Barlow',sans-serif;font-weight:800;
+  font-size:clamp(1.7rem,3.5vw,2.6rem);
+  letter-spacing:-.02em;margin-bottom:1.5rem;
+}
+
+/* ABOUT */
+#about{background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+.about-grid{display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:start;}
+.about-text p{color:var(--dim);font-size:.87rem;line-height:1.9;margin-bottom:1rem;}
+.skills{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.5rem;}
+.sk{
+  background:var(--bg3);border:1px solid var(--border2);
+  color:var(--cyan);font-size:.68rem;padding:.28rem .65rem;
+}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);}
+.stat{background:var(--panel);padding:1.4rem;}
+.sv{font-family:'Barlow',sans-serif;font-size:1.9rem;font-weight:800;color:var(--green);line-height:1;margin-bottom:.2rem;}
+.sl{font-size:.68rem;color:var(--dim);letter-spacing:.04em;}
+
+/* PROJECT */
+.pcard{background:var(--panel);border:1px solid var(--border);transition:border-color .3s,box-shadow .3s;}
+.pcard:hover{border-color:rgba(57,217,138,.3);box-shadow:0 0 40px rgba(57,217,138,.04);}
+.phead{padding:2rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:2rem;}
+.pbadge{
+  display:inline-flex;align-items:center;gap:.4rem;
+  background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.2);
+  color:var(--amber);font-size:.65rem;padding:.2rem .6rem;
+  letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;
+}
+.pbadge::before{content:'●';font-size:.45rem;animation:blink 2s step-end infinite;}
+h3{font-family:'Barlow',sans-serif;font-weight:700;font-size:1.4rem;margin-bottom:.5rem;}
+.pdesc{color:var(--dim);font-size:.84rem;line-height:1.9;margin-bottom:1.5rem;}
+.pipeline{display:flex;align-items:center;flex-wrap:wrap;gap:0;margin-top:1.5rem;}
+.ps2{background:var(--bg3);border:1px solid var(--border2);padding:.35rem .85rem;font-size:.7rem;color:var(--cyan);letter-spacing:.04em;}
+.pa{color:var(--muted);font-size:.8rem;padding:0 .2rem;}
+.pmeta{display:flex;gap:1rem;flex-wrap:wrap;padding:.9rem 2rem;background:var(--bg3);border-top:1px solid var(--border);}
+.mi{font-size:.7rem;color:var(--dim);}
+.mi span{color:var(--green);}
+
+/* OPTIONS TABLE */
+.opt-table{width:100%;border-collapse:collapse;font-size:.8rem;margin-top:1.5rem;}
+.opt-table th{text-align:left;color:var(--dim);font-weight:400;padding:.5rem .8rem;border-bottom:1px solid var(--border);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;}
+.opt-table td{padding:.55rem .8rem;border-bottom:1px solid rgba(26,34,53,.6);vertical-align:top;}
+.opt-table tr:hover td{background:rgba(57,217,138,.03);}
+.flag{color:var(--cyan);font-size:.78rem;}
+.fdesc{color:var(--dim);font-size:.78rem;}
+.ftag{display:inline-block;background:var(--gdim);border:1px solid rgba(57,217,138,.15);color:var(--green);font-size:.62rem;padding:.1rem .4rem;margin-right:.3rem;}
+
+/* DEMO */
+#demo{background:var(--bg2);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+.demo-box{background:#1e1e1e;border:1px solid #454545;font-size:.8rem;}
+.panels{display:grid;grid-template-columns:1fr 1fr 1fr;min-height:360px;}
+.dpanel{border-right:1px solid #3c3c3c;display:flex;flex-direction:column;}
+.dpanel:last-child{border-right:none;}
+.ph{
+  background:#252526;border-bottom:1px solid #3c3c3c;
+  padding:.45rem 1rem;font-size:.65rem;color:#969696;letter-spacing:.1em;text-transform:uppercase;
+  display:flex;align-items:center;gap:.45rem;
+}
+.pd{width:6px;height:6px;border-radius:50%;}
+textarea{
+  flex:1;background:#1e1e1e;border:none;outline:none;
+  color:#cccccc;font-family:'IBM Plex Mono',monospace;
+  font-size:.8rem;line-height:1.75;padding:.9rem;resize:none;width:100%;
+}
+.outarea{flex:1;padding:.9rem;overflow-y:auto;font-size:.76rem;line-height:1.8;background:#1e1e1e;}
+.tokrow{display:flex;align-items:center;gap:.7rem;padding:.12rem 0;border-bottom:1px solid rgba(26,34,53,.4);}
+.toktype{font-size:.62rem;padding:.08rem .4rem;min-width:78px;text-align:center;letter-spacing:.03em;}
+.TT-VAR,.TT-TYPE{background:rgba(167,139,250,.12);color:var(--purple);border:1px solid rgba(167,139,250,.2);}
+.TT-ID{background:rgba(56,189,248,.1);color:var(--cyan);border:1px solid rgba(56,189,248,.18);}
+.TT-NUM,.TT-FNUM{background:rgba(245,158,11,.1);color:var(--amber);border:1px solid rgba(245,158,11,.2);}
+.TT-ADDOP,.TT-SUBOP,.TT-MULOP,.TT-POWOP,.TT-BITOP,.TT-SHIFTOP,.TT-UNRSHIFTOP,.TT-BITNOTOP{background:rgba(57,217,138,.08);color:var(--green);border:1px solid rgba(57,217,138,.18);}
+.TT-BOOLOP,.TT-BOOLNOTOP,.TT-BOOLCONST,.TT-EQNEQOP,.TT-GLOP{background:rgba(56,189,248,.08);color:var(--cyan);border:1px solid rgba(56,189,248,.15);}
+.TT-ASSIGNOP,.TT-COMMAOP,.TT-DOTOP,.TT-COLON{background:rgba(90,111,138,.15);color:#8a9ab5;border:1px solid rgba(90,111,138,.2);}
+.TT-LBRACE,.TT-RBRACE,.TT-LPAREN,.TT-RPAREN,.TT-LBRACK,.TT-RBRACK{background:rgba(107,114,128,.15);color:#9ca3af;border:1px solid rgba(107,114,128,.2);}
+.TT-STRINGCONST{background:rgba(248,113,113,.1);color:#fb923c;border:1px solid rgba(248,113,113,.18);}
+.TT-FUNCDEF,.TT-RETURN,.TT-WHILE,.TT-IF,.TT-ELIF,.TT-ELSE{background:rgba(167,139,250,.12);color:var(--purple);border:1px solid rgba(167,139,250,.2);}
+.TT-INCOP,.TT-DECOP{background:rgba(57,217,138,.08);color:var(--green);border:1px solid rgba(57,217,138,.18);}
+.TT-EOF,.TT-WHITESPACE,.TT-EOS{background:rgba(58,74,96,.15);color:var(--muted);border:1px solid rgba(58,74,96,.2);}
+.TT-unknown{background:rgba(248,113,113,.1);color:var(--red);border:1px solid rgba(248,113,113,.18);}
+.tokval{color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.76rem;}
+.tokpos{color:var(--muted);font-size:.62rem;white-space:nowrap;margin-left:auto;}
+
+.treebox-out{font-size:.74rem;line-height:1.72;white-space:pre;font-family:'IBM Plex Mono',monospace;color:#cccccc;}
+.tb-node{color:#4ec9b0;}
+.tb-key{color:#9cdcfe;}
+.tb-tok{color:#ce9178;}
+.tb-null{color:#808080;}
+.tb-uid{color:#b5cea8;}
+.tb-type{color:#4ec9b0;}
+.tb-list{color:#cccccc;}
+
+.empty-state{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;color:var(--muted);font-size:.76rem;gap:.4rem;padding:2rem;text-align:center;
+}
+.ei{font-size:1.8rem;opacity:.25;}
+
+/* CONTACT */
+.cg{display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:start;}
+.cp{color:var(--dim);font-size:.87rem;line-height:1.9;margin-bottom:2rem;}
+.clinks{display:flex;flex-direction:column;gap:.65rem;}
+.clink{
+  display:flex;align-items:center;gap:.9rem;
+  padding:.75rem 1rem;background:var(--panel);
+  border:1px solid var(--border);color:var(--dim);text-decoration:none;
+  font-size:.79rem;transition:all .2s;
+}
+.clink:hover{border-color:var(--green);color:var(--green);}
+.ci{font-size:1rem;width:20px;text-align:center;}
+.cform{display:flex;flex-direction:column;gap:.9rem;}
+.fg{display:flex;flex-direction:column;gap:.35rem;}
+label{font-size:.68rem;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;}
+input,textarea.fta{
+  background:var(--panel);border:1px solid var(--border);
+  color:var(--text);font-family:'IBM Plex Mono',monospace;
+  font-size:.82rem;padding:.65rem .9rem;outline:none;
+  transition:border-color .2s;width:100%;
+}
+input:focus,textarea.fta:focus{border-color:rgba(57,217,138,.4);}
+textarea.fta{min-height:90px;resize:vertical;}
+
+/* FOOTER */
+footer{
+  border-top:1px solid var(--border);padding:1.4rem 2rem;
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:.68rem;color:var(--muted);
+}
+footer span{color:var(--green);}
+
+/* UTILITIES */
+.fiu{opacity:0;transform:translateY(20px);transition:opacity .6s ease,transform .6s ease;}
+.fiu.v{opacity:1;transform:translateY(0);}
+@media(max-width:768px){
+  .about-grid,.cg{grid-template-columns:1fr;}
+  .panels{grid-template-columns:1fr;}
+  .dpanel{border-right:none;border-bottom:1px solid var(--border);}
+  nav ul{gap:1rem;}
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes fadeIn{to{opacity:1}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<!-- Blazor mounts here — kept invisible, real UI is below -->
+<div id="app" style="display:none"></div>
+
+<nav>
+  <div class="nav-logo">Noah Hensley<em> //</em> compiler-sharp</div>
+  <ul>
+    <li><a href="#about">about</a></li>
+    <li><a href="#project">project</a></li>
+    <li><a href="#demo">demo</a></li>
+    <li><a href="#contact">contact</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="grid-bg"></div>
+  <div class="hero-glow"></div>
+  <div class="hero-inner">
+    <div class="eyebrow">senior @ shawnee state university</div>
+    <h1>
+      Writing a compiler<br>
+      <span class="d">The affordable way.</span>
+    </h1>
+    <p class="hero-sub">
+      I'm Noah — a senior Computer Engineering student building a full shunting-yard compiler
+      in C#. Every terminal, AST node, and type rule programmed by me, and verified by over 1,300+ unit tests.
+    </p>
+    <p class="hero-sub">
+      I read a headline recently about a compiler written by a team of AI agents. A compiler that "sort-of" worked.
+      This one was designed by two people.
+    </p>
+    <div class="btns">
+      <a href="#demo" class="btn btn-p">&#9654; Try the Demo</a>
+      <a href="https://github.com/noahensley" target="_blank" class="btn btn-o">&#8997; github.com/noahensley</a>
+    </div>
+    <div class="hero-stats">
+      <div class="hstat"><div class="hstat-v">1,300+</div><div class="hstat-l">unit tests</div></div>
+      <div class="hstat"><div class="hstat-v">22</div><div class="hstat-l">operators</div></div>
+      <div class="hstat"><div class="hstat-v">5</div><div class="hstat-l">output modes</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<section id="about">
+  <div class="inner fiu">
+    <div class="slabel"><span class="n">01</span> about</div>
+    <div class="about-grid">
+      <div class="about-text">
+        <h2>Building it<br/>bottom-up.</h2>
+        <p>
+          This project is a showcase of approaching compilers from a
+          non-traditional perspective. No parser generators, no ANTLR &#8212;
+          just a regex-driven tokenizer, a shunting-yard expression
+          parser, and a type checker built through test driven development.
+        </p>
+        <div class="skills">
+          <span class="sk">C# / .NET 10</span>
+          <span class="sk">Shunting-Yard</span>
+          <span class="sk">Regex Lexing</span>
+          <span class="sk">AST Design</span>
+          <span class="sk">Type Checking</span>
+          <span class="sk">Graphviz DOT</span>
+          <span class="sk">Python Testing</span>
+          <span class="sk">JSON Serialization</span>
+        </div>
+      </div>
+      <div>
+        <div class="stats">
+          <div class="stat"><div class="sv">1,300+</div><div class="sl">typecheck tests alone</div></div>
+          <div class="stat"><div class="sv">22</div><div class="sl">operators supported</div></div>
+          <div class="stat"><div class="sv">5</div><div class="sl">output modes</div></div>
+          <div class="stat"><div class="sv">int float string</div><div class="sl">type system</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROJECT -->
+<section id="project">
+  <div class="inner fiu">
+    <div class="slabel"><span class="n">02</span> project</div>
+    <h2>Compiler-Sharp.</h2>
+    <div class="pcard">
+      <div class="phead">
+        <div>
+          <h3>compiler-sharp</h3>
+          <p class="pdesc">
+            A hand-written C# compiler using the shunting-yard algorithm for expression parsing.
+            Input source code passes through a regex-driven lexer, a recursive-descent parser
+            that builds a full typed AST, and a type checker with comprehensive test coverage.
+            Output modes include JSON token streams, JSON AST, Graphviz dotfiles, and box-drawn tree diagrams.
+          </p>
+          <div class="pipeline">
+            <div class="ps2">Source</div><div class="pa">&#8594;</div>
+            <div class="ps2">Terminals / Lexer</div><div class="pa">&#8594;</div>
+            <div class="ps2">Shunting-Yard Parser</div><div class="pa">&#8594;</div>
+            <div class="ps2">AST</div><div class="pa">&#8594;</div>
+            <div class="ps2">Type Checker</div><div class="pa">&#8594;</div>
+            <div class="ps2">Codegen &#10216;soon&#10217;</div>
+          </div>
+        </div>
+        <div class="pbadge">In Development</div>
+      </div>
+      <div style="padding:2rem;border-bottom:1px solid var(--border);">
+        <div style="font-size:.72rem;color:var(--dim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:1rem;">CLI Options</div>
+        <table class="opt-table">
+          <thead>
+            <tr><th>Flag</th><th>Description</th><th>Output</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="flag">-tok-json</td><td class="fdesc">Token stream as JSON</td><td><span class="ftag">JSON</span></td></tr>
+            <tr><td class="flag">-tree-json</td><td class="fdesc">AST serialized to JSON</td><td><span class="ftag">JSON</span></td></tr>
+            <tr><td class="flag">-tree-box</td><td class="fdesc">ASCII box-draw tree diagram</td><td><span class="ftag">text</span></td></tr>
+            <tr><td class="flag">-dotfile</td><td class="fdesc">Graphviz DOT graph of expression AST</td><td><span class="ftag">dot</span></td></tr>
+            <tr><td class="flag">-type-check</td><td class="fdesc">Type-annotated AST output</td><td><span class="ftag">JSON</span></td></tr>
+            <tr><td class="flag">-dir &lt;path&gt;</td><td class="fdesc">Write output to a specified directory</td><td><span class="ftag">any</span></td></tr>
+            <tr><td class="flag">--gen-tests</td><td class="fdesc">Generate test cases from staging inputs</td><td><span class="ftag">[JSON,.txt] files</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pmeta">
+        <div class="mi">lang: <span>C# / .NET 10</span></div>
+        <div class="mi">course: <span>ETEC4401</span></div>
+        <div class="mi">school: <span>Shawnee State University</span></div>
+        <div class="mi">status: <span>parsing + type checking</span></div>
+        <div class="mi">tests: <span>1,300+ typecheck passing</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DEMO -->
+<section id="demo">
+  <div class="inner fiu">
+    <div class="slabel"><span class="n">03</span> interactive demo</div>
+    <h2>Live Parser.</h2>
+    <p style="color:var(--dim);font-size:.85rem;margin-bottom:2rem;line-height:1.85;">
+      Type source code below. Click run, and watch how my compiler tokenizes and parses the source code.
+      The token stream and parse tree are shown side by side.
+    </p>
+    <div class="demo-box">
+      <!-- VS Code title bar -->
+      <div class="vsc-chrome">
+        <div class="vsc-title-text">compiler-sharp</div>
+      </div>
+      <!-- Tab bar -->
+      <div class="vsc-tabs">
+        <div class="vsc-tab vsc-tab-active">TERMINAL</div>
+        <div class="vsc-tab">PROBLEMS</div>
+        <div class="vsc-tab">OUTPUT</div>
+        <div style="flex:1"></div>
+        <button class="vsc-run-btn" onclick="runDemo()">&#9654;&nbsp; Run</button>
+      </div>
+      <div class="panels">
+        <div class="dpanel">
+          <div class="ph"><div class="pd" style="background:var(--cyan)"></div>source code</div>
+          <textarea id="codeInput" spellcheck="false">func main() : int{
+    if x != 0{
+        return x + y
+    }
+    return 0
+}</textarea>
+        </div>
+        <div class="dpanel">
+          <div class="ph"><div class="pd" style="background:var(--green)"></div>token stream</div>
+          <div class="outarea" id="tokOut"><div class="empty-state"><div class="ei">&#11041;</div>Press Run to tokenize</div></div>
+        </div>
+        <div class="dpanel">
+          <div class="ph"><div class="pd" style="background:var(--purple)"></div>parse tree (AST)</div>
+          <div class="outarea" id="astOut"><div class="empty-state"><div class="ei">&#11041;</div>Press Run to parse</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact">
+  <div class="inner fiu">
+    <div class="slabel"><span class="n">04</span> contact</div>
+    <div class="cg">
+      <div>
+        <h2>Let's connect.</h2>
+        <p class="cp">
+          Open to internships, entry-level roles, and questions or comments about compiler-sharp.
+          Currently finishing my senior year at Shawnee State.
+        </p>
+        <div class="clinks">
+          <a href="https://github.com/noahensley" class="clink" target="_blank">
+            <span class="ci">&#8997;</span> github.com/noahensley
+          </a>
+          <a href="/cdn-cgi/l/email-protection#4a24252b220a2f322b273a262f64292527" class="clink">
+            <span class="ci">&#64;</span> <span class="__cf_email__" data-cfemail="e886878980a88d90898598848dc68b8785">[email&#160;protected]</span>
+          </a>
+        </div>
+      </div>
+      <form class="cform" onsubmit="handleSend(event)">
+        <div class="fg"><label>Name</label><input type="text" placeholder="Jane Smith"/></div>
+        <div class="fg"><label>Email</label><input type="email" placeholder="jane@company.com"/></div>
+        <div class="fg"><label>Message</label><textarea class="fta" placeholder="Tell me about the role or project..."></textarea></div>
+        <button type="submit" class="btn btn-p" style="align-self:flex-start;">&#9654; Send</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div><span>Noah Hensley</span> &#8212; Shawnee State University</div>
+  <div>compiler<span>-sharp</span></div>
+</footer>
+
+
+<!-- 1. Boot WASM runtime — CompilerBridge registers window.compiler when ready -->
+<script src="_framework/blazor.webassembly.js"></script>
+
+<!-- 2. Portfolio UI + demo runner — uses real C# compiler via window.compiler -->
+<script src="portfolio.js"></script>
+
+</body>
+</html>
