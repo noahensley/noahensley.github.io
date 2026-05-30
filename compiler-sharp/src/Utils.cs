@@ -14,6 +14,7 @@
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
+using ASM;
 
 /// <summary>
 /// Utility class providing helper functions for command-line option parsing, file processing,
@@ -30,20 +31,26 @@ using System.Text.Unicode;
 public class Utils
 {   
     // Path constants
-    private const string INPUT_DIR = "inputs/";
-    private const string OUTPUT_DIR = "outputs/";
+    private const string INPUT_DIR = "inputs";
+    private const string OUTPUT_DIR = "outputs";
 
     // Output constants
-    private const string NULL_JSON = "null";
+    private const string NULL = "null";
     
     // File extension constants
     private const string TEXT_EXT = ".txt";
     private const string JSON_EXT = ".json";
 
     /// <summary>
-    /// Writes an exception's message to stderr and rethrows it.
+    /// Records a compiler error.
     /// </summary>
-    /// <param name="e">The exception to report and rethrow.</param>
+    /// <param name="e">The exception representing the error condition.</param>
+    /// <remarks>
+    /// Instead of immediately terminating compilation, errors are collected so
+    /// that multiple issues can be reported during a single compilation run.
+    /// The caller is responsible for ensuring that compilation halts if the
+    /// accumulated errors prevent further meaningful processing.
+    /// </remarks>
     /// <exception cref="Exception">Always rethrows the provided exception.</exception>
     public static void error(Exception e)
     {
@@ -77,48 +84,93 @@ public class Utils
     /// <item>-tree-box: Output parse tree as box-drawing text</item>
     /// <item>-dotfile: Output Graphviz dotfile</item>
     /// <item>-type-check: Output type checking result as JSON</item>
+    /// <item>-var-decl: Output variable declaration info to console</item>
+    /// <item>-var-decl: Output class/variable declaration info to console</item>
     /// </list>
     /// <para>Optional flags (must follow the format option):</para>
     /// <list type="bullet">
     /// <item>--outdir [dir]: Write output files to the specified directory instead of the default outputs/ directory</item>
     /// </list>
     /// </remarks>
-    public static List<string> parseOptions(string[] args)
+    public static ParsedOptions parseOptions(string[] args)
     {
-        List<string> opts = new List<string>();
-        if (args.Length > 0)
+        ParsedOptions opts = new ParsedOptions();
+        try
         {
-            switch (args[0])
+            switch(args[0])
             {
-                case Options.GenTests or Options.Run:
-                {
-                    opts.Add(args[0]);
-                    if (args.Length < 2)
-                        error(new InvalidOption("Provided mode option without format option (-tree-[json][box]|-tok-json|-dotfile|-type-check)"));
-                    opts.Add(args[1]);
-                    if (args.Length > 2)
+                case Options.Run:
+                    opts.mode = args[0];
+                    break;
+                case Options.GenTests:
+                    opts.mode = args[0];
+                    switch(args[2])
                     {
-                        switch (args[2])
-                        {
-                            case Options.OutDir:
-                                opts.Add(args[2]);
-                                if (args.Length < 4)
-                                    error(new InvalidOption("Provided outdir option with no out directory specified"));
-                                opts.Add(args[3]);
-                                break;
-                        }
+                        case Options.OutDir:
+                            opts.opt = args[2];
+                            opts.optarg = args[3];
+                            break;
+                        default:
+                            // should be file here
+                            break;
                     }
                     break;
-                }
                 default:
-                {
-                    if (args[0].Contains("--"))
-                        error(new InvalidOption("Provided unrecognized option"));
+                    error(new InvalidOption($"Provided unrecognized mode '{args[0]}' (mode: [--run | --gen-tests]"));
                     break;
-                }
+            }
+
+            switch(args[1])
+            {
+                case Options.TokJson:
+                case Options.TreeJson:
+                case Options.TreeBox:
+                case Options.Dotfile:
+                case Options.TypeCheck:
+                case Options.VarDecl:
+                case Options.ClassDecl:
+                case Options.CompileAsm:
+                    opts.fmt = args[1];
+                    break;
+                default:
+                    error(new InvalidOption($@"Provided unrecognized format '{args[1]}' (format: 
+                        [-tok-json|-tree-json|-tree-box|-dotfile|
+                        -type-check|-var-decl|-class-decl|-comp-asm]"));
+                    break;
             }
         }
+        catch (IndexOutOfRangeException e)
+        {
+            error(new InvalidOption($"Encountered error while parsing '{args}': {e}"));
+        }
+
         return opts;
+    }
+
+    public static List<string> parseInputFilesOrDirectories(string[] args, ParsedOptions opts)
+    {
+        int i = 0;
+        List<string> inputs = new List<string>();
+        if (args.Count() > 1)
+        {
+            i = opts.Length();
+            inputs.AddRange(args[i..]);
+        }
+        else
+        {
+            return new List<string>(){args[0]};
+        }
+
+        if (inputs.Count() == 0)
+            error(new InvalidOption($"Tried to parse input files but none found '{args}'"));
+
+        foreach (string input in inputs)
+        {
+            if (!input.EndsWith(".txt") && !Directory.Exists(input))
+                error(new InvalidOption($"Could not find input directory '{input}'"));
+        }
+            
+        return inputs;
     }
 
     /// <summary>
@@ -135,15 +187,8 @@ public class Utils
     /// Both individual files and directories are accepted; directories are searched non-recursively
     /// for <c>*.txt</c> files.
     /// </remarks>
-    public static int handleOptions(string[] args, List<string> opts)
+    public static void handleOptions(List<string> files, ParsedOptions opts)
     {
-        if (opts.Count == 0)
-            return 0;
-        if (opts.Count > 4) // optional -dir [dir] option
-            return -1;
-
-        string[] files = args[opts.Count..];
-
         foreach (string input in files)
         {
             if (Directory.Exists(input))
@@ -155,15 +200,14 @@ public class Utils
             }
             else if (File.Exists(input))
             {
-                processFile(input, opts);
+                if (processFile(input, opts) == 1) // return code available if needed
+                    Environment.Exit(1);
             }
             else
             {
-                Console.Error.WriteLine("Could not find input file/directory:", input);
-                break;
+                error(new InvalidOption($"Could not find input file or directory: {input}"));
             }
         }
-        return 1;
     }
 
     /// <summary>
@@ -192,50 +236,55 @@ public class Utils
     /// </item>
     /// <item>Outputs results based on mode (file or console)</item>
     /// </list>
-    /// Each format handles parse/tokenization failures internally and writes a
-    /// format-appropriate failure value (e.g., <c>NULL_JSON</c> or <c>{"legal": false}</c>).
+    /// <para>
+    /// <b>Error handling contract:</b> Each format is responsible for writing its own
+    /// format-appropriate failure value when a parse or processing error occurs — for example,
+    /// <c>null</c> for JSON formats and <c>{"legal": false}</c> for type-check. The outer
+    /// catch in this method therefore silently swallows exceptions, relying on each format
+    /// handler to have already written its sentinel output before propagating.
+    /// </para>
     /// </remarks>
-    private static void processFile(string inputPath, List<string> opts)
+    private static int processFile(string inputPath, ParsedOptions opts)
     {
         Tokenizer tokenizer = new Tokenizer();
         using (StreamReader reader = new StreamReader(inputPath))
             tokenizer.setInput(reader.ReadToEnd());
 
-        string format = opts[1];
+        ExprNode.resetCounter();
+        SymbolTable.resetTable();
+        SymbolTable.populateBuiltins();
+        Label.resetLabelCounter();
+        GlobalLocation.resetCounter();
 
-        try
+        switch (opts.fmt)
         {
-            switch (format)
-            {
-                case Options.TokJson or Options.TreeJson:
-                    outputJson(inputPath, opts, tokenizer);
-                    break;
-                case Options.TreeBox:
-                    ExprNode.ResetCounter();
-                    ProgramNode tree = parseToTree(tokenizer);
-                    outputBoxDrawing(tree, inputPath, opts);
-                    break;
-                case Options.Dotfile:
-                    ExprNode.ResetCounter();
-                    tree = parseToTree(tokenizer);     
-                    walkTree(tree, inputPath, opts);
-                    break;
-                case Options.TypeCheck:
-                    tree = parseToTree(tokenizer);
-                    walkTree(tree, inputPath, opts);
-                    break;
-                default:
-                    Utils.error(new InvalidOption($"Unrecognized option provided: {format}"));
-                    break;
-            }
+            case Options.TokJson or Options.TreeJson:
+                return outputJson(inputPath, opts, tokenizer);
+            case Options.TreeBox:
+                ProgramNode? tree = parseToTree(tokenizer);
+                return outputBoxDrawing(tree, inputPath, opts);
+            case Options.Dotfile:
+                tree = parseToTree(tokenizer);
+                walkTree(tree, inputPath, opts);
+                break;
+            case Options.TypeCheck:
+                tree = parseToTree(tokenizer);
+                return walkTree(tree, inputPath, opts);
+            case Options.VarDecl:
+                tree = parseToTree(tokenizer);
+                return walkTree(tree, inputPath, opts);
+            case Options.ClassDecl:
+                tree = parseToTree(tokenizer);
+                return walkTree(tree, inputPath, opts);
+            case Options.CompileAsm:
+                tree = parseToTree(tokenizer);
+                return walkTree(tree, inputPath, opts);
+            default:
+                Utils.error(new InvalidOption($"Could not process unknown format: {opts.fmt}"));
+                break;
         }
-        catch (Exception)
-        {
-            // each format handles failures internally:
-            //      e.g. Json => NULL_JSON
-            //      e.g. TypeCheck => {"legal": false}
-            //      ...
-        }
+
+        return 0;
     }
 
     /// <summary>
@@ -243,12 +292,12 @@ public class Utils
     /// </summary>
     /// <param name="tokenizer">The tokenizer instance containing the input to process.</param>
     /// <returns>
-    /// A JSON string representing the list of tokens, or <c>NULL_JSON</c> if a tokenization error occurred.
+    /// A JSON string representing the list of tokens, or <c>NULL</c> if a tokenization error occurred.
     /// </returns>
     /// <remarks>
     /// <para>
     /// Consumes tokens until EOF is reached. If an error occurs during tokenization,
-    /// returns <c>NULL_JSON</c> and writes the error to stderr.
+    /// returns <c>NULL</c> and writes the error to stderr.
     /// </para>
     /// <para>
     /// JSON serialization options:
@@ -290,7 +339,7 @@ public class Utils
             }
         }
 
-        return hasError ? NULL_JSON : System.Text.Json.JsonSerializer.Serialize(tokens, jsonOpts);
+        return hasError ? NULL : System.Text.Json.JsonSerializer.Serialize(tokens, jsonOpts);
     }
 
     /// <summary>
@@ -305,7 +354,7 @@ public class Utils
     /// Catches all parsing exceptions and returns an empty tree on failure, allowing
     /// the program to continue processing other files in batch mode.
     /// </remarks>
-    private static ProgramNode parseToTree(Tokenizer tokenizer)
+    private static ProgramNode? parseToTree(Tokenizer tokenizer)
     {
         try
         {
@@ -313,7 +362,8 @@ public class Utils
         }
         catch (Exception)
         {
-            return new ProgramNode();
+            //Console.Error.WriteLine(e);
+            return null;
         }
     }
 
@@ -326,11 +376,11 @@ public class Utils
     /// Catches and suppresses <see cref="StopIteration"/> exceptions to allow the callback
     /// to terminate traversal early by throwing one.
     /// </remarks>
-    static void walk(TreeNode n, Action<TreeNode> callback)
+    static void walkPreOrder(TreeNode n, Action<TreeNode> callback)
     {
         try
         {
-            walkHelper(n, callback);
+            walkPreOrderHelper(n, callback);
         }
         catch (StopIteration)
         {
@@ -343,12 +393,12 @@ public class Utils
     /// </summary>
     /// <param name="node">The current node being visited.</param>
     /// <param name="callback">Action to apply to the current node before visiting its children.</param>
-    static void walkHelper(TreeNode node, Action<TreeNode> callback)
+    static void walkPreOrderHelper(TreeNode node, Action<TreeNode> callback)
     {
         callback(node);
         foreach(TreeNode child in node.getChildren())
         {
-            walk(child, callback);
+           walkPreOrderHelper(child, callback);
         }
     }
 
@@ -382,20 +432,142 @@ public class Utils
     {
         foreach(TreeNode child in node.getChildren())
         {
-            walkPostOrder(child, callback);
+            walkPostOrderHelper(child, callback);
         }
         callback(node);
     }
 
+    public static void walkPreAndPostOrder(TreeNode n, Action<TreeNode> precallback, Action<TreeNode> postcallback)
+    {
+        try
+        {
+            walkPreAndPostOrderHelper(n, precallback, postcallback);
+        }
+        catch (StopIteration)
+        {
+            
+        }
+    }
+
+    public static void walkPreAndPostOrderHelper(TreeNode n, Action<TreeNode> precallback, Action<TreeNode> postcallback)
+    {
+        precallback(n);
+        foreach (TreeNode c in n.getChildren())
+        {
+            walkPreAndPostOrderHelper(c, precallback, postcallback);
+        }
+        postcallback(n);
+    }
+
+    public static void setTemporaries(TreeNode root)
+    {
+        ExprNode? topLevel = null;
+        FuncdefNode? currentFunction = null;
+        int numTemporaries = 0;
+        walkPreAndPostOrder(root, 
+            (n) =>
+        {
+            FuncdefNode? f = n as FuncdefNode;
+            if (f != null)
+            {
+                currentFunction = f;
+            }
+
+            ExprNode? e = n as ExprNode;
+            if (e != null)
+            {
+                Variable? v = e as Variable;
+                if (v == null) // don't set temporaries for variables--not needed
+                {
+                    if (topLevel == null)
+                    {
+                        topLevel = e;
+                        numTemporaries = 0;
+                    }
+                    e.temporary = new Temporary(numTemporaries);
+                    numTemporaries++;
+                }
+            }
+        },
+        (n) =>
+        {
+            if (n == topLevel)
+            {
+                // assuming currentFunction != null rules out allowing for
+                // declaration and initialization to be used in one line
+                //  e.g. var x = ...
+                currentFunction!.maxTemporaries = Math.Max(numTemporaries, currentFunction!.maxTemporaries);
+                topLevel = null;
+            }
+        });
+    }
+
     /// <summary>
-    /// Walks the program tree and generates output in the specified format (dotfile or type-check).
+    /// Compiles a source string through the full codegen pipeline and returns the
+    /// x86-64 AT&amp;T assembly as a string. Does not invoke clang or the linker.
+    /// Returns a string beginning with "error:" on failure.
+    /// </summary>
+    public static string CompileAsmToString(string source)
+    {
+        try
+        {
+            ASM.Asm.opcodes.Clear();
+ 
+            var tokenizer = new Tokenizer();
+            tokenizer.setInput(source);
+            var tree = ProgramNode.parse(tokenizer);
+ 
+            if (tree.getChildren().Count == 0)
+                return "error: empty program";
+ 
+            walkPreOrder(tree, (n) =>
+            {
+                foreach (var c in n.getChildren())
+                    c.parent = n;
+            });
+ 
+            walkPreOrder(tree, (n) =>
+            {
+                Variable? v = n as Variable;
+                if (v != null)
+                    v.assignVarInfo();
+            });
+ 
+            walkPostOrder(tree, (n) => n.setType());
+            walkPostOrder(tree, (n) => n.typeCheck());
+            setTemporaries(tree);
+            tree.genCode();
+ 
+            ASM.Label? mainLabel = null;
+            foreach (FuncdefNode f in tree.funcs)
+            {
+                if (f.info?.token == null)
+                    continue;
+                if (f.info.token.lexeme == "main")
+                    mainLabel = f.lbl;
+            }
+            if (mainLabel is null)
+                return "error: no main function found";
+ 
+            var sw = new StringWriter();
+            ASM.Asm.write(sw, mainLabel);
+            return sw.ToString();
+        }
+        catch (Exception e)
+        {
+            return $"error: {e.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Walks the program tree and generates output in the specified format (dotfile, type-check, or var-decl).
     /// </summary>
     /// <param name="tree">The program tree to process.</param>
     /// <param name="inputPath">The original input file path (used for output path generation in --gen-tests mode).</param>
     /// <param name="opts">List containing processing options where:
     /// <list type="bullet">
     /// <item>opts[0]: Processing mode (--gen-tests or --run)</item>
-    /// <item>opts[1]: Output format (-dotfile or -type-check)</item>
+    /// <item>opts[1]: Output format (-dotfile, -type-check, or -var-decl)</item>
     /// <item>opts[2]: (Optional) --outdir flag</item>
     /// <item>opts[3]: (Optional) Output directory path</item>
     /// </list>
@@ -404,25 +576,68 @@ public class Utils
     /// <para>
     /// For <c>-dotfile</c>: walks the tree to find the first expression node, then generates
     /// a Graphviz <c>graph</c> block containing node label declarations and undirected edge
-    /// declarations for that expression subtree. Outputs <c>NULL_JSON</c> if the tree is empty.
+    /// declarations for that expression subtree. Outputs <c>NULL</c> if the tree is empty.
     /// </para>
     /// <para>
     /// For <c>-type-check</c>: performs two full post-order traversals — one to assign types
     /// to each node and one to validate them — then outputs <c>{"legal": true}</c> on success
     /// or <c>{"legal": false}</c> if the tree is empty or a type error is encountered.
     /// </para>
+    /// <para>
+    /// For <c>-var-decl</c>: performs a four-phase post-parse pipeline:
+    /// </para>
+    /// <list type="number">
+    /// <item><b>Hoist</b> (pre-order walk): Calls <see cref="Variable.assignVarInfo"/> on every
+    /// <see cref="Variable"/> node. By this point all local scopes have been removed, so this
+    /// pass resolves any forward references to globals that could not be resolved during parsing.</item>
+    /// <item><b>Set types</b> (post-order walk): Calls <c>setType()</c> on every node to propagate
+    /// type information bottom-up through the tree.</item>
+    /// <item><b>Check types</b> (post-order walk): Calls <c>typeCheck()</c> on every node to
+    /// validate that all type constraints are satisfied.</item>
+    /// <item><b>Print variable info</b> (pre-order walk): Calls <see cref="Variable.getVarInfo"/>
+    /// on every <see cref="Variable"/> node and writes the result to the output writer.</item>
+    /// </list>
+    /// <para>
+    /// On any exception during the pipeline, outputs <c>null</c> for <c>-var-decl</c> and
+    /// <c>{"legal": false}</c> for <c>-type-check</c>.
+    /// </para>
     /// </remarks>
-    private static void walkTree(ProgramNode tree, string inputPath, List<string> opts)
+    private static int walkTree(ProgramNode? tree, string inputPath, ParsedOptions opts)
     {
-        string mode = opts[0];
+        string mode = opts.mode!;
         string format = "";
-        if (opts.Count > 1)
-            format = opts[1];
+        if (opts.Length() > 1)
+            format = opts.fmt!;
         TextWriter outw = Console.Out;
+        string outfile;
         switch (mode)
         {
+            case Options.Client:
+                switch (format)
+                {
+                    case Options.Dotfile:
+                        outfile = "tree.dot";
+                        outw = new StreamWriter(outfile);
+                        break;
+                    case Options.VarDecl:
+                        break; // outw is already Console.Out
+                    case Options.CompileAsm:
+                        break;
+                    case Options.ClassDecl:
+                        break;
+                    case Options.TypeCheck:
+                        break;
+                    default:
+                        outfile = getOutputFile(inputPath);
+                        outw = new StreamWriter(outfile);
+                        break;
+                }
+                break;
             case Options.GenTests:
-                outw = new StreamWriter(getOutputPath(inputPath, opts));
+                if (opts.opt != Options.OutDir)
+                    throw new Exception("GenTests mode with no specified output directory");
+                outfile = getOutputPath(inputPath, opts);
+                outw = new StreamWriter(outfile);
                 break;
             case Options.Run:
                 outw = Console.Out;
@@ -432,95 +647,251 @@ public class Utils
                 break;
         }
 
-        if (tree.getChildren().Count == 0)
+        if (tree == null)
         {
             switch (format)
             {
                 case Options.Dotfile:
-                    outw.Write(NULL_JSON);
+                    outw.WriteLine(NULL);
                     break;
                 case Options.TypeCheck:
-                    outw.Write("{\"legal\": false}");
+                    outw.WriteLine("{\"legal\": false}");
+                    break;
+                case Options.VarDecl:
+                    outw.WriteLine(NULL);
+                    break;
+                case Options.ClassDecl:
+                    outw.WriteLine("INVALID");
+                    break;
+                case Options.CompileAsm:
+                    //outw.WriteLine("INVALID"); // change this based on tests
                     break;
                 default:
                     break;
             }
             outw.Close();
-            return;
+            return 1;
         }
 
-        try
+        switch (format)
         {
-            switch (format)
-            {
-                case Options.Dotfile:
-                    walk(tree, (TreeNode node) =>
+            case Options.Dotfile:
+               walkPreOrder(tree, (TreeNode node) =>
+                {
+                    var enode = node as ExprNode; 
+                    if (enode == null)
+                        return;
+
+                    outw.WriteLine("graph program {");
+
+                   walkPreOrder(enode, (child) =>
                     {
-                        var enode = node as ExprNode; 
-                        if (enode == null) // TreeNode was not ExprNode; don't care about it
-                            return;
-
-                        outw.WriteLine("graph program {");
-
-                        // Write all node declarations
-                        walk(enode, (child) =>
-                        {
-                            ExprNode echild = (ExprNode)child;
-                            outw.WriteLine($"{echild.unique_id} [label=\"{echild.token.lexeme}\"]");
-                        });
-
-                        // Write all edge declarations
-                        walk(enode, (child) =>
-                        {
-                            ExprNode echild = (ExprNode)child;
-                            foreach (var grandchild in echild.getChildren())
-                            {
-                                ExprNode egrandchild = (ExprNode)grandchild;
-                                outw.WriteLine($"{echild.unique_id} -- {egrandchild.unique_id}");
-                            }
-                        });
-
-                        outw.WriteLine("}");
-                        outw.Close();
-                        
-                        // Terminate tree walk after first expression
-                        throw new StopIteration();
+                        ExprNode echild = (ExprNode)child;
+                        outw.WriteLine($"{echild.unique_id} [label=\"{echild.token.lexeme}\"]");
                     });
-                break;
 
-            case Options.TypeCheck:
-                // Traverse entire tree post order; set types
+                   walkPreOrder(enode, (child) =>
+                    {
+                        ExprNode echild = (ExprNode)child;
+                        foreach (var grandchild in echild.getChildren())
+                        {
+                            ExprNode egrandchild = (ExprNode)grandchild;
+                            outw.WriteLine($"{echild.unique_id} -- {egrandchild.unique_id}");
+                        }
+                    });
+
+                    outw.WriteLine("}");
+                    outw.Close();
+                    
+                    throw new StopIteration();
+                });
+            break;
+
+        case Options.TypeCheck:
+            try
+            {
+               walkPreOrder(tree, (n) =>
+                {
+                    foreach (var c in n.getChildren())
+                    {
+                        c.parent = n;
+                    }
+                });
+
                 walkPostOrder(tree, (n) =>
                 {
                     n.setType();
                 });
 
-                // Traverse entire tree post order; check types
                 walkPostOrder(tree, (n) =>
                 {
                     n.typeCheck(); 
                 });
                 outw.Write("{\"legal\": true}");
-                break;
-
-            default:
-                // Unsupported formats are filtered out in processFile; no action needed here.
-                break;
-            }        
-        }
-        catch (Exception)
-        {
-            switch (format)
-            {
-                case Options.TypeCheck:
-                    outw.Write("{\"legal\": false}");
-                    break;
             }
-        }
-        finally
-        {
-            outw.Close();
-        }
+            catch (Exception)
+            {
+                outw.Write("{\"legal\": false}");
+                return 1;
+            }
+            break;
+
+        case Options.VarDecl:
+            try
+            {
+               walkPreOrder(tree, (n) =>
+                {
+                    foreach (var c in n.getChildren())
+                    {
+                        c.parent = n;
+                    }
+                });
+
+               walkPreOrder(tree, (n) => 
+                {
+                    Variable v = (n as Variable)!;
+                    if (v != null)
+                        v.assignVarInfo();
+                });
+
+                walkPostOrder(tree, (n) =>
+                {
+                    n.setType();
+                });
+
+                // some vardecl tests did not expect function return type
+                //  type checking. Comment out ReturnNode.typeCheck to by-
+                //  pass the test failure
+                walkPostOrder(tree, (n) =>
+                {
+                    n.typeCheck(); 
+                });
+                
+               walkPreOrder(tree, (n) => 
+                {
+                    Variable v = (n as Variable)!;
+                    if (v != null)
+                        outw.WriteLine(v.getVarInfo());
+                });
+            }
+            catch (Exception)
+            {
+                outw.Write(NULL);
+                return 1;
+            }
+            break;
+
+        case Options.ClassDecl:
+            try
+            {
+               walkPreOrder(tree, (n) =>
+                    {
+                        foreach (var c in n.getChildren())
+                        {
+                            c.parent = n;
+                        }
+                    });
+
+               walkPreOrder(tree, (n) => 
+                {
+                    Variable v = (n as Variable)!;
+                    if (v != null)
+                        v.assignVarInfo();
+                });
+
+                walkPostOrder(tree, (n) =>
+                {
+                    n.setType();
+                });
+
+                walkPostOrder(tree, (n) =>
+                {
+                    n.typeCheck(); 
+                });
+                
+               walkPreOrder(tree, (n) => 
+                {
+                    Variable v = (n as Variable)!;
+                    if (v != null)
+                        outw.WriteLine(v.getVarInfo(verbose: false));
+                    else
+                    {
+                        Member m = (n as Member)!;
+                        if (m != null)
+                            outw.WriteLine(m.getMemberInfo());
+                    }
+                });
+            }
+            catch (Exception)
+            {
+                outw.WriteLine("INVALID");
+                return 1;
+            }
+            
+            break;
+
+        case Options.CompileAsm:
+            string outAsm = opts.optarg!;
+            try
+            {
+               walkPreOrder(tree, (n) =>
+                {
+                    foreach (var c in n.getChildren())
+                    {
+                        c.parent = n;
+                    }
+                });
+
+                walkPreOrder(tree, (n) => 
+                {
+                    Variable v = (n as Variable)!;
+                    if (v != null)
+                        v.assignVarInfo();
+                });
+
+                walkPostOrder(tree, (n) =>
+                {
+                    n.setType();
+                });
+
+                walkPostOrder(tree, (n) =>
+                {
+                    n.typeCheck(); 
+                });
+
+                setTemporaries(tree);
+                tree.genCode();
+                
+                using(var w = new StreamWriter(outAsm))
+                {
+                    Label? mainLabel = null;
+                    foreach (FuncdefNode f in tree.funcs)
+                    {
+                        if (f.info!.token == null)
+                            continue;
+                        if (f.info.token.lexeme == "main")
+                            mainLabel = f.lbl;
+                    }
+                    if (mainLabel == null)
+                        throw new Exception("Didn't find main label");
+                    Asm.write(w, mainLabel);
+                }
+                lab.Run.compile(outAsm);               
+            }
+            catch (Exception e)
+            {
+                Console.Error.Write(e);
+                outw.WriteLine("INVALID"); // change this based on tests
+                return 1;
+            }
+            break;
+
+        default:
+            break;
+        }        
+        
+        outw.Close();
+        return 0;
     }
 
     /// <summary>
@@ -540,18 +911,31 @@ public class Utils
     /// For <c>-tok-json</c>, serializes the full token stream to JSON via <see cref="tokenizeToJson"/>.
     /// For <c>-tree-json</c>, parses the token stream into a tree and serializes the first
     /// <see cref="ExprNode"/> encountered during a pre-order walk.
-    /// In both cases, any exception during processing causes <c>NULL_JSON</c> to be written instead.
+    /// In both cases, any exception during processing causes <c>NULL</c> to be written instead.
     /// </remarks>
-    private static void outputJson(string inputPath, List<string> opts, Tokenizer tokenizer)
+    private static int outputJson(string inputPath, ParsedOptions opts, Tokenizer tokenizer)
     {
-        string mode = opts[0];
-        string format = opts[1];
+        string mode = opts.mode!;
+        string format = opts.fmt!;
+        int failed = 0;
 
         TextWriter outw = Console.Out;
         switch (mode)
         {
-            case Options.GenTests:
-                outw = new StreamWriter(getOutputPath(inputPath, opts));
+            case Options.GenTests or Options.Client:
+                string outfile = "";
+                if (opts.opt == Options.OutDir)
+                    outfile = getOutputPath(inputPath, opts);
+                else
+                {
+                    switch (format)
+                    {
+                        case Options.TreeJson:
+                            outfile = "tree.json";
+                            break;
+                    }
+                }
+                outw = new StreamWriter(outfile);
                 break;
             case Options.Run:
                 outw = Console.Out;
@@ -561,7 +945,7 @@ public class Utils
                 break;
         }
 
-        string jsonData = NULL_JSON;
+        string jsonData = NULL;
         try
         {
             switch (format)
@@ -571,7 +955,7 @@ public class Utils
                     break;
                 case Options.TreeJson:
                     ProgramNode tree = ProgramNode.parse(tokenizer);
-                    walk(tree, (TreeNode node) =>
+                   walkPreOrder(tree, (TreeNode node) =>
                     {
                         var enode = node as ExprNode;
                         if (enode != null)
@@ -589,12 +973,15 @@ public class Utils
         catch (Exception)
         {
             // jsonData should be null if parsing error occurred
+            failed = 1;
         }
         finally
         {
             outw.Write(jsonData);
             outw.Close();
         }  
+
+        return failed;
     }
 
     /// <summary>
@@ -611,12 +998,12 @@ public class Utils
     /// </list>
     /// </param>
     /// <remarks>
-    /// Uses UTF-8 encoding to correctly render box-drawing characters. Writes <c>NULL_JSON</c>
+    /// Uses UTF-8 encoding to correctly render box-drawing characters. Writes <c>NULL</c>
     /// if the tree contains no function nodes. Any rendering errors are reported to stderr.
     /// </remarks>
-    private static void outputBoxDrawing(ProgramNode tree, string inputPath, List<string> opts)
+    private static int outputBoxDrawing(ProgramNode? tree, string inputPath, ParsedOptions opts)
     {
-        string mode = opts[0];
+        string mode = opts.mode!;
         Console.OutputEncoding = Encoding.UTF8;
         TextWriter outw;
         switch (mode)
@@ -629,15 +1016,15 @@ public class Utils
                 break;
             default:
                 error(new InvalidOption($"Unrecognized mode: {mode}"));
-                return;
+                return 1;
         }
 
         using (outw)
         {
-            if (tree.funcs.Count == 0)
+            if (tree == null)
             {
-                outw.Write(NULL_JSON);
-                return;
+                outw.Write(NULL);
+                return 1;
             }
             try
             {
@@ -648,6 +1035,8 @@ public class Utils
                 Console.Error.WriteLine(e);
             }
         }
+
+        return 0;
     }
 
     /// <summary>
@@ -674,16 +1063,16 @@ public class Utils
     /// <c>-type-check</c> formats; all other formats retain <c>.txt</c>.
     /// </para>
     /// </remarks>
-    private static string getOutputPath(string inputPath, List<string> opts)
+    private static string getOutputPath(string inputPath, ParsedOptions opts)
     {
         string outdir = OUTPUT_DIR;
         string ext = TEXT_EXT;
         string format = "";
-        if (opts.Count > 1)
-            format = opts[1];
-        if (opts.Count == 4 && opts[2] == Options.OutDir)
+        if (opts.Length() > 1)
+            format = opts.fmt!;
+        if (opts.Length() == 4 && opts.opt == Options.OutDir)
         {
-            outdir = $"{opts[3]}/";
+            outdir = $"{opts.optarg}";
             switch (format)
             {
                 case Options.Dotfile:
@@ -702,5 +1091,20 @@ public class Utils
         int j = inputPath.IndexOf(TEXT_EXT); // assuming all input files are .txt
         string outputPath = inputPath[..i] + outdir + inputPath[(i + INPUT_DIR.Length)..j] + ext;
         return outputPath;
+    }
+
+    private static string getOutputFile(string inputPath)
+    {
+        string fname = "";
+        for (int i = inputPath.Length - 1; i >= 0; i--)
+        {
+            char cur = inputPath[i];
+            if (cur == '/' || cur == '\\')
+                break;
+            fname += cur;
+        }
+        char[] charr = fname.ToArray();
+        Array.Reverse(charr);
+        return new string(charr);
     }
 }

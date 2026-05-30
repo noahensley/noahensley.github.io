@@ -1,4 +1,4 @@
-﻿/*
+/*
 * File: Program.cs
 * Author: Noah Hensley
 * Course: ETEC4401
@@ -11,64 +11,73 @@
 
 
 /// <summary>
-/// Entry point for the parser program that processes source files and generates 
-/// either token streams (JSON) or parse trees based on command-line options.
+/// Entry point for the compiler that processes source files and generates
+/// token streams, parse trees, type-check results, or variable declaration info
+/// based on command-line options.
 /// </summary>
 /// <remarks>
-/// <para>Supported command-line options:</para>
+/// <para>Supported command-line options (mode + format):</para>
 /// <list type="bullet">
-/// <item><description>--gen-tests -json: Generates JSON token output to staging/outputs directory</description></item>
-/// <item><description>--gen-tests -tree: Generates parse tree output to staging/outputs directory</description></item>
-/// <item><description>--run -json: Outputs JSON tokens to console</description></item>
-/// <item><description>--run -tree: Outputs parse tree to console</description></item>
+/// <item><description>--gen-tests -tok-json: Tokenizes input and writes a JSON token array to the outputs directory.</description></item>
+/// <item><description>--gen-tests -tree-json: Parses input and writes a JSON expression tree to the outputs directory.</description></item>
+/// <item><description>--gen-tests -tree-box: Parses input and writes a box-drawing text tree to the outputs directory.</description></item>
+/// <item><description>--gen-tests -dotfile: Parses input and writes a Graphviz dotfile to the outputs directory.</description></item>
+/// <item><description>--gen-tests -type-check: Parses and type-checks input, writing a JSON legal/illegal result to the outputs directory.</description></item>
+/// <item><description>--run [format]: Same as --gen-tests but writes output to the console instead.</description></item>
 /// </list>
-/// <para>If no options are provided, defaults to --run -tree behavior.</para>
+/// <para>If no options are provided, defaults to --run -tree-box behavior (parse tree to console).</para>
 /// </remarks>
 public class Program 
 {
     /// <summary>
-    /// Main entry point that orchestrates the parsing workflow based on command-line arguments.
+    /// Main entry point that orchestrates the compiler workflow based on command-line arguments.
     /// </summary>
     /// <param name="args">
-    /// Command line arguments. First argument should be an option (--gen-tests or --run),
-    /// second argument should be output format (-json or -tree), followed by input file path(s).
-    /// If no options provided, remaining arguments are treated as input file paths with default --run -tree behavior.
+    /// Command-line arguments. When options are provided, the first argument is the mode
+    /// (--gen-tests or --run), the second is the output format (-tok-json, -tree-json,
+    /// -tree-box, -dotfile, or -type-check), followed by optional flags and input file paths.
+    /// If no options are provided, all arguments are treated as input file paths with default
+    /// --run -tree-box behavior.
     /// </param>
     /// <remarks>
-    /// <para>The method uses Utils.parseOptions() to validate and extract options, then Utils.handleOptions() 
-    /// to process files according to those options. Options are parsed and validated to ensure proper format.</para>
-    /// <para>When no options are provided, the program defaults to parsing input files and outputting 
-    /// parse trees to the console (equivalent to --run -tree).</para>
-    /// <para>The program exits with code 0 upon successful completion.</para>
+    /// <para>Uses <see cref="Utils.parseOptions"/> to validate and extract options, then
+    /// <see cref="Utils.handleOptions"/> to process files according to those options.</para>
+    /// <para>When no options are provided, the program parses each input file and outputs a
+    /// box-drawing parse tree to the console.</para>
+    /// <para>The program exits with code 0 upon successful completion, or code 1 if a
+    /// per-file error occurs during default execution.</para>
     /// </remarks>
-    /// <exception cref="Exception">
-    /// Thrown by Utils helper functions when invalid options are provided or when option 2 
-    /// (-json or -tree) is missing after option 1 (--gen-tests or --run).
+    /// <exception cref="InvalidOption">
+    /// Reported via <see cref="Utils.error"/> when a mode option is provided without a
+    /// format option, or when an unrecognized option is supplied.
     /// </exception>
     public static void Main(string[] args)
     {
-        List<string> opts = Utils.parseOptions(args);
-
-        if (Utils.handleOptions(args, opts) == 0)
+        try
         {
-            // no options, execute normally (tree)
-            Tokenizer T = new Tokenizer();
-            foreach (string input in args)
+            ParsedOptions opts = new ParsedOptions();
+            List<string> files = new List<string>();
+            if (args.Count() > 1 && args[^1] != "out.asm")
             {
-                try
-                {
-                    using (StreamReader r = new StreamReader(input))
-                        T.setInput(r.ReadToEnd());               
-                    ProgramNode tree_data = ProgramNode.parse(T);
-                    Treedump.textTree(tree_data, Console.Out);
-                }
-                catch (Exception e)
-                {
-                    Console.Error.WriteLine(e);
-                    Environment.Exit(1);
-                }
+                opts = Utils.parseOptions(args);
+                files = Utils.parseInputFilesOrDirectories(args, opts);
             }
-        }  
+            else
+            {
+                opts.mode = Options.Client;
+                opts.fmt = Options.CompileAsm;
+                files.AddRange(args);
+                opts.optarg = files[^1];
+                files.Remove(opts.optarg);
+                Utils.handleOptions(files, opts);
+            }     
+        }
+        catch (Exception e)
+        {
+            Console.Error.WriteLine(e);
+            Environment.Exit(1);
+        }
+
         Environment.Exit(0);
     }
 }

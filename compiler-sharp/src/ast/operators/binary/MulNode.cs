@@ -15,6 +15,7 @@
 /// <remarks>
 /// Handles MULOP tokens including: * (multiplication), / (division), and % (modulo).
 /// </remarks>
+using ASM;
 public class MulNode : BinaryOperator
 {
     /// <summary>
@@ -45,8 +46,76 @@ public class MulNode : BinaryOperator
     {
     }
 
+    /// <summary>
+    /// Type validation for this node. Not yet implemented.
+    /// </summary>
     public override void typeCheck()
     {
         return; // not implemented
+    }
+
+    public override void genCode()
+    {
+        if (this.type == null)
+            throw new Exception($"Internal compiler error: got MulNode operands of uninitialized type.");
+
+        base.genCode(); // moves both float and int L/R
+
+        if (this.type == VarType.Int)
+        {
+            switch (this.token.lexeme)
+            {
+                case "*":
+                    Asm.emit(
+                        new Comment($"*** int multiplication {this.token} ***"),
+                        new OpMul(Register.rax, Register.rbx)
+                    );
+                    this.getResultLocation()!.copyFromRegister(Register.rax, StorageClass.STATIC);
+                        break;
+                case "/":
+                    Asm.emit(
+                        new Comment($"*** int division {this.token} ***"),
+                        new OpCQO(),
+                        new OpDiv(Register.rbx)
+                    );
+                    this.getResultLocation()!.copyFromRegister(Register.rax, StorageClass.STATIC);
+                    break;
+                case "%":
+                    Asm.emit(
+                        new Comment($"*** int modulo {this.token} ***"),
+                        new OpCQO(),
+                        new OpDiv(Register.rbx)
+                    );
+                    this.getResultLocation()!.copyFromRegister(Register.rdx, StorageClass.STATIC);
+                    break;
+                default:
+                    throw new Exception($"Internal compiler error: got unexpected MulNode lexeme '{this.token.lexeme}'");
+            }
+        }
+        else // VarType.Float
+        {       
+            switch (this.token.lexeme)
+            {
+                case "*":
+                    Asm.emit(
+                        new Comment("*** float multiplication ***"),
+                        new OpFMul(left: Register.xmm0, right: Register.xmm1)
+                    );
+                    this.getResultLocation()!.copyFromRegister(Register.xmm0, StorageClass.STATIC);
+                    break;
+                case "/":
+                    Asm.emit(
+                        new Comment("*** float division ***"),
+                        new OpFDiv(left: Register.xmm0, right: Register.xmm1)
+                    );
+                    this.getResultLocation()!.copyFromRegister(Register.xmm0, StorageClass.STATIC);
+                    break;
+                case "%":
+                    throw new NotImplementedException();
+                    
+                default:
+                    throw new Exception($"Internal compiler error: got unexpected MulNode lexeme '{this.token.lexeme}'");
+            }
+        }
     }
 }

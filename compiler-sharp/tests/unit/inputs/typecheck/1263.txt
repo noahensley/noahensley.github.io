@@ -1,0 +1,5 @@
+func bar(x:string,y:float){
+}
+func foo(){
+	bar(1,2.0)
+}

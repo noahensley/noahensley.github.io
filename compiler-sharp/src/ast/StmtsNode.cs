@@ -7,6 +7,7 @@
  * for this file on the following dates:
  *      January 25, 2026,
  *      January 28, 2026
+ *      February 25, 2026
  */
 
 /// <summary>
@@ -62,59 +63,46 @@ public class StmtsNode : TreeNode
     /// Parsing sequence:
     /// </para>
     /// <list type="number">
-    /// <item>Expects opening brace (LBRACE)</item>
-    /// <item>Expects end-of-statement token (EOS) after opening brace</item>
-    /// <item>Parses statements in a loop until closing brace (RBRACE) is encountered</item>
-    /// <item>Expects closing brace (RBRACE)</item>
-    /// <item>Conditionally consumes trailing EOS token if present (see below)</item>
+    /// <item>Expects opening brace (LBRACE).</item>
+    /// <item>Expects end-of-statement token (EOS) after the opening brace.</item>
+    /// <item>Parses statements in a loop until a closing brace (RBRACE) is encountered.</item>
+    /// <item>Expects closing brace (RBRACE).</item>
+    /// <item>Consumes a trailing EOS token if present.</item>
     /// </list>
     /// <para>
-    /// <b>Special handling for trailing EOS:</b> After the closing brace, if an EOS token
-    /// is present, it is consumed UNLESS the next token after it might be ELSE. This allows
-    /// if-else chains to work correctly without requiring the else keyword to appear on the
-    /// same line as the closing brace of the if block. The parser peeks ahead to check for
-    /// ELSE before consuming the EOS.
+    /// <b>Scope management:</b> This method no longer creates or removes symbol table
+    /// scopes. Scope handling is the responsibility of the enclosing construct
+    /// (e.g., function definitions, loops, or conditionals). Those nodes explicitly
+    /// push and pop scopes before and after invoking <see cref="StmtsNode.parse"/>.
     /// </para>
     /// <para>
-    /// Empty blocks are valid: <c>{ }</c> (just opening brace, EOS, closing brace).
+    /// As a result, a statement block is now purely a syntactic grouping mechanism
+    /// in the AST. Whether it introduces a new scope depends entirely on the
+    /// surrounding node.
+    /// </para>
+    /// <para>
+    /// Empty blocks are valid: <c>{ }</c>.
     /// </para>
     /// </remarks>
-    /// <exception cref="Exception">
-    /// Thrown when the opening brace (LBRACE) is not found.
-    /// </exception>
-    /// <exception cref="Exception">
-    /// Thrown when the EOS token after the opening brace is missing.
-    /// </exception>
-    /// <exception cref="Exception">
-    /// Thrown when the closing brace (RBRACE) is not found.
-    /// </exception>
-    /// <exception cref="Exception">
-    /// Thrown when statement parsing fails (delegated to StmtNode.parse()).
-    /// </exception>
-    public static StmtsNode parse(Tokenizer T)
+    public static StmtsNode parse(Tokenizer T, bool consumeEOS = true)
     {
         T.expect(TokenSymbols.LBRACE);
-        T.expect(TokenSymbols.EOS); // Newline after opening brace
+        T.expect(TokenSymbols.EOS);
         
         StmtsNode snode = new StmtsNode();
         
-        // Parse statements until closing brace
         while (true)
         {
+            if (T.peek() == TokenSymbols.EOS)
+                T.expect(TokenSymbols.EOS);
             if (T.peek() == TokenSymbols.RBRACE)
                 break;
-            if (T.peek() == TokenSymbols.EOS)
-            {
-                T.expect(TokenSymbols.EOS);
-                break;
-            }
             snode.stmts.Add(StmtNode.parse(T));
         }
         
         T.expect(TokenSymbols.RBRACE);
 
-        // Conditionally consume trailing EOS (unless followed by ELSE)
-        if (T.peek() == TokenSymbols.EOS)
+        if (T.peek() == TokenSymbols.EOS && consumeEOS)
             T.expect(TokenSymbols.EOS);
             
         return snode;
@@ -136,13 +124,19 @@ public class StmtsNode : TreeNode
         return new List<TreeNode>(stmts);
     }
 
+    /// <summary>
+    /// Type inference for statement blocks. Not yet implemented.
+    /// </summary>
     public override void setType()
     {
-        return; // not implemented
+        return;
     }
 
+    /// <summary>
+    /// Type validation for statement blocks. Not yet implemented.
+    /// </summary>
     public override void typeCheck()
     {
-        return; // not implemented
+        return;
     }
 }

@@ -1,0 +1,7 @@
+graph program {
+n2 [label="+"]
+n0 [label="1"]
+n1 [label="2"]
+n2 -- n0
+n2 -- n1
+}

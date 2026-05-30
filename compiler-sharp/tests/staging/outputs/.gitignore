@@ -1,0 +1,3 @@
+# Intermediate directory for new generated tests
+*.svg
+!.gitignore

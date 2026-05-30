@@ -1,0 +1,11 @@
+var z: int
+func foo(){
+	var x: int
+	var y: int
+	if true {
+		var x: int
+		var w: int
+		x = y+z
+	}
+	x=y+z
+}

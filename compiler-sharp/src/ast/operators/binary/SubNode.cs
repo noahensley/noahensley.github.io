@@ -7,7 +7,7 @@
  * for this file on the following dates:
  *      February 16, 2026
  */
-
+using ASM;
 /// <summary>
 /// Represents a subtraction operation in the expression tree.
 /// </summary>
@@ -43,8 +43,37 @@ public class SubNode : BinaryOperator
     {
     }
 
+    /// <summary>
+    /// Type validation for this node. Not yet implemented.
+    /// </summary>
     public override void typeCheck()
     {
         return; // not implemented
     }
+
+    public override void genCode()
+    {
+        if (this.left.type != this.right.type)
+            throw new Exception("Internal compiler error: cannot generate asm code for type mismatched addition expr");
+
+        base.genCode();
+
+        if (this.left.type == VarType.Int)
+        {
+            Asm.emit(
+                new Comment("*** OpSub ***"),
+                new OpSub(left: Register.rax, right: Register.rbx)
+            );
+            this.getResultLocation()!.copyFromRegister(Register.rax, StorageClass.STATIC);
+        }
+        else if (this.left.type == VarType.Float)
+        {
+            Asm.emit(
+                new Comment("*** OpFSub ***"),
+                new OpFSub(left: Register.xmm0, right: Register.xmm1)
+            );
+            this.getResultLocation()!.copyFromRegister(Register.xmm0, StorageClass.STATIC);
+        }
+    }
+
 }

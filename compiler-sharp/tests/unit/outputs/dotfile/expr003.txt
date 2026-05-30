@@ -1,0 +1,11 @@
+graph program {
+n4 [label="-"]
+n2 [label="+"]
+n0 [label="1"]
+n1 [label="2"]
+n3 [label="3"]
+n4 -- n2
+n4 -- n3
+n2 -- n0
+n2 -- n1
+}

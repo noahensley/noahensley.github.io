@@ -9,6 +9,9 @@
  *      January 28, 2026
  */
 
+using ASM;
+using System.Diagnostics;
+
 /// <summary>
 /// Represents a conditional statement (if, else if, or else) in the abstract syntax tree.
 /// </summary>
@@ -40,32 +43,31 @@ public class CondNode : StmtNode
     /// both code generation and semantic analysis.
     /// </remarks>
     public Token clause;
+
+    public List<CondNode> alternatives = [];
     
     /// <summary>
-    /// The condition expression to evaluate (placeholder for else clauses).
+    /// The condition expression to evaluate, or a placeholder for else clauses.
     /// </summary>
     /// <remarks>
     /// For if and elif clauses, contains the boolean expression that determines whether
-    /// the statement block executes. For else clauses, contains a placeholder Term node
-    /// with an empty token.
+    /// the statement block executes. For else clauses, contains a placeholder
+    /// <see cref="Term"/> node with an empty token.
     /// </remarks>
-    public ExprNode condition;
+    public ExprNode? condition;
     
     /// <summary>
-    /// The statement block to execute when the condition is true (or for else clauses).
+    /// The statement block to execute when the condition is true (or unconditionally for else).
     /// </summary>
     public StmtsNode stmts;
     
     /// <summary>
-    /// Creates a conditional node with a condition expression.
+    /// Creates a conditional node with a condition expression (if or elif clause).
     /// </summary>
     /// <param name="clause">The clause keyword token (IF or ELIF).</param>
     /// <param name="condition">The condition expression to evaluate.</param>
     /// <param name="stmts">The statement block to execute when the condition is true.</param>
-    /// <remarks>
-    /// This constructor is used for if and elif clauses that have a condition expression.
-    /// </remarks>
-    private CondNode(Token clause, ExprNode condition, StmtsNode stmts)
+    private CondNode(Token clause, ExprNode? condition, StmtsNode stmts)
     {
         this.clause = clause;
         this.condition = condition;
@@ -78,8 +80,8 @@ public class CondNode : StmtNode
     /// <param name="clause">The ELSE keyword token.</param>
     /// <param name="stmts">The statement block to execute unconditionally.</param>
     /// <remarks>
-    /// This constructor is used for else clauses. Creates a placeholder condition using
-    /// an empty Term node to maintain consistent tree structure for traversal algorithms.
+    /// Creates a placeholder condition using an empty <see cref="Term"/> node to maintain
+    /// consistent tree structure for traversal algorithms.
     /// </remarks>
     private CondNode(Token clause, StmtsNode stmts)
     {
@@ -92,7 +94,7 @@ public class CondNode : StmtNode
     /// Parses a conditional statement from the token stream.
     /// </summary>
     /// <param name="T">The tokenizer containing the input token stream.</param>
-    /// <returns>A CondNode representing the parsed conditional statement.</returns>
+    /// <returns>A <see cref="CondNode"/> representing the parsed conditional statement.</returns>
     /// <remarks>
     /// <para>
     /// Expected syntax:
@@ -107,71 +109,75 @@ public class CondNode : StmtNode
     /// the clause keyword:
     /// </para>
     /// <list type="bullet">
-    /// <item>NUM token: Indicates the start of an expression (if/elif clause)</item>
-    /// <item>LBRACE token: Indicates the start of a statement block with no condition (else clause)</item>
+    /// <item>Literal tokens (NUM, FNUM, BOOLCONST, STRINGCONST): indicates the start of a condition expression (if/elif clause).</item>
+    /// <item>LBRACE token: indicates the start of a statement block with no condition (else clause).</item>
     /// </list>
     /// <para>
-    /// Note: This assumes expressions always begin with NUM tokens. This will need to be
-    /// updated when the language supports expressions starting with other tokens (e.g., 
-    /// identifiers, parentheses, unary operators).
+    /// <b>Scope management:</b> A new scope is pushed immediately before parsing the statement
+    /// block and removed immediately after. Variables declared inside a conditional clause are
+    /// therefore local to that block and not visible outside it.
     /// </para>
     /// </remarks>
-    /// <exception cref="Exception">
-    /// Thrown when the next token is not IF, ELIF, or ELSE.
-    /// </exception>
-    /// <exception cref="Exception">
-    /// Thrown when expected tokens (expression or statement block) are missing.
+    /// <exception cref="InvalidCondition">
+    /// Reported via <see cref="Utils.error"/> when the next token is not IF, ELIF, or ELSE,
+    /// or when neither a condition expression nor a statement block follows the clause keyword.
     /// </exception>
     public new static CondNode parse(Tokenizer T)
     {
-        Token clause = new Token();
-        
-        // Determine which clause type we're parsing
-        switch (T.peek())
-        {
-            case TokenSymbols.IF:
-                clause = T.expect(TokenSymbols.IF);
-                break;
-            case TokenSymbols.ELIF:
-                clause = T.expect(TokenSymbols.ELIF);
-                break;
-            case TokenSymbols.ELSE:
-                clause = T.expect(TokenSymbols.ELSE);
-                break;
-            default:
-                Utils.error(new InvalidCondition($"Expected condition clause at line {T.getLine()}"));
-                break;
-        }
+        Token clause = T.expect(TokenSymbols.IF);
+        CondNode? condNode = null;
 
         // Check if a condition expression is present
-        if (T.peek() == TokenSymbols.NUM || T.peek() == TokenSymbols.FNUM || T.peek() == TokenSymbols.BOOLCONST || 
-            T.peek() == TokenSymbols.STRINGCONST)
+        if (ExprNode.canParse(T))
         {
-            // if/elif clause with condition
+            // if clause with condition
             ExprNode cond = ExprNode.parse(T);
-            StmtsNode stmts = StmtsNode.parse(T);
-            return new CondNode(clause, cond, stmts);
-        }
-        else if (T.peek() == TokenSymbols.LBRACE)
-        {
-            // else clause without condition
-            StmtsNode stmts = StmtsNode.parse(T);
-            return new CondNode(clause, stmts);
+            SymbolTable.addScope();
+            StmtsNode stmts = StmtsNode.parse(T,false);
+            SymbolTable.removeScope();
+            condNode = new CondNode(clause, cond, stmts);
         }
 
-        Utils.error(new InvalidCondition("Expected expression or statement block after conditional clause"));
-        throw new Exception(""); // Unreachable, but required for compiler
+        if (condNode == null)
+        {
+            Utils.error(new InvalidCondition($"Expected expression and statement block after conditional clause {clause.lexeme} on line {clause.line}"));
+            throw new UnreachableException("");
+        }
+
+        while (T.peek() == TokenSymbols.ELIF)
+        {
+            // Check if a condition expression is present
+            Token altclause = T.expect(TokenSymbols.ELIF);
+            if (ExprNode.canParse(T))
+            {
+                // elif clause with condition
+                ExprNode cond = ExprNode.parse(T);
+                SymbolTable.addScope();
+                StmtsNode stmts = StmtsNode.parse(T,false);
+                SymbolTable.removeScope();
+                condNode.alternatives.Add(new CondNode(altclause, cond, stmts));
+            }
+        }
+
+        if (T.peek() == TokenSymbols.ELSE)
+        {
+            Token altclause = T.expect(TokenSymbols.ELSE);
+            SymbolTable.addScope();
+            StmtsNode stmts = StmtsNode.parse(T);
+            SymbolTable.removeScope();
+            condNode.alternatives.Add(new CondNode(altclause, null, stmts));
+        }
+
+        return condNode;
     }
     
     /// <summary>
-    /// Checks if the next token can be parsed as a conditional statement.
+    /// Determines whether the next token can begin a conditional statement.
     /// </summary>
-    /// <param name="T">The tokenizer to check.</param>
-    /// <returns>True if the next token is IF, ELIF, or ELSE; false otherwise.</returns>
+    /// <param name="T">The tokenizer to inspect.</param>
+    /// <returns><c>true</c> if the next token is IF, ELIF, or ELSE; otherwise <c>false</c>.</returns>
     /// <remarks>
-    /// Used by the statement parser to determine which type of statement to parse.
-    /// This lookahead allows the parser to dispatch to the appropriate parsing method
-    /// without consuming tokens.
+    /// Used by the statement parser to dispatch to this parser without consuming tokens.
     /// </remarks>
     public static bool canParse(Tokenizer T)
     {
@@ -182,26 +188,96 @@ public class CondNode : StmtNode
     /// Gets the child nodes of this conditional statement.
     /// </summary>
     /// <returns>
-    /// A list containing the condition expression and statement block.
+    /// A list containing the condition expression followed by the statement block.
     /// </returns>
     /// <remarks>
     /// Returns both the condition (which may be a placeholder for else clauses) and the
-    /// statement block. This allows tree traversal algorithms to visit all parts of the
-    /// conditional structure uniformly.
+    /// statement block, allowing tree traversal algorithms to visit all parts uniformly.
     /// </remarks>
     public override List<TreeNode> getChildren()
     {
-        return new List<TreeNode>() { condition, stmts };
+        if (this.clause.lexeme.ToUpper() == TokenSymbols.ELSE)
+        {
+            if (this.alternatives.Count() > 0)
+                throw new Exception("Internal compiler error: got else condition with illegal alternatives.");
+            return new List<TreeNode>([stmts, .. this.alternatives]);
+        }
+        if (this.condition == null)
+            throw new Exception($"Condition node {this.clause.lexeme} has a null condition on line {this.clause.line}");
+        return new List<TreeNode>([condition!, stmts, .. this.alternatives]);
     }
 
+    /// <summary>
+    /// Type inference for conditional nodes. Not yet implemented.
+    /// </summary>
     public override void setType()
     {
         return; // not implemented
     }
 
+    /// <summary>
+    /// Validates that the condition expression evaluates to a boolean type.
+    /// </summary>
+    /// <exception cref="InvalidCondition">
+    /// Reported via <see cref="Utils.error"/> when the condition type is not <see cref="BoolConstType"/>.
+    /// </exception>
     public override void typeCheck()
     {
+        if (this.condition == null)
+        {
+            if (this.clause.lexeme.ToUpper() == TokenSymbols.ELSE)
+                return;
+            Utils.error(new InvalidExpression($"Got a '{this.clause.lexeme}' clause with no condition on line {this.clause.line}"));
+            throw new UnreachableException();
+        }
+            
         if (this.condition.type != VarType.BoolConst)
             Utils.error(new InvalidCondition($"Invalid condition on line {this.clause.line}; Expected BoolConst, got {this.condition.type}"));
+    }
+
+    public override void genCode()
+    {
+        Label endLabel = new Label();      // one label for the whole if/elif/else
+
+        if (this.condition == null)
+            throw new Exception("Internal compiler error: got a condition with a null expression.");
+
+        Label nextAlternative = new Label();  // local, passed consistently
+
+        this.condition.genCode();
+        this.condition.getResultLocation()!.copyToRegister(Register.rax, null);
+        Asm.emit(
+            new Comment("testing main condition"),
+            new OpTest(Register.rax, Register.rax),
+            new OpJmpCC("z", nextAlternative)
+        );
+
+        // main body
+        this.stmts.genCode();
+        Asm.emit(new OpJmp(endLabel));
+        Asm.emit(nextAlternative);
+
+        foreach(CondNode alt in this.alternatives)
+        {
+            nextAlternative = new Label(); // new local label for this alt's skip target
+            ExprNode? expr = alt.condition;
+
+            if (expr != null) // elif
+            {
+                expr.genCode();
+                expr.getResultLocation()!.copyToRegister(Register.rax, null);
+                Asm.emit(
+                    new Comment("testing alternative condition"),
+                    new OpTest(Register.rax, Register.rax),
+                    new OpJmpCC("z", nextAlternative)
+                );
+            }
+
+            alt.stmts.genCode();
+            Asm.emit(new OpJmp(endLabel));
+            Asm.emit(nextAlternative);
+        }
+
+        Asm.emit(endLabel);
     }
 }

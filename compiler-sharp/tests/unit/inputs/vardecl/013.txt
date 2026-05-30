@@ -1,0 +1,4 @@
+var x: int
+func foo(){
+	x+1.0
+}

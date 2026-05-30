@@ -10,6 +10,7 @@
  *      January 25, 2026
  *      January 28, 2026
  *      February 17, 2026
+ *      February 25, 2026
  */
 
 using System.Diagnostics;
@@ -162,13 +163,17 @@ public class Tokenizer
     }
 
     /// <summary>
-    /// Finds the matching closing delimiter for a given opening delimiter symbol.
+    /// Finds the matching closing delimiter for a given opening delimiter symbol, or the matching
+    /// opening delimiter for a given closing delimiter symbol.
     /// </summary>
-    /// <param name="nest_sym">The nestable opening symbol (LBRACE, LPAREN, or LBRACK).</param>
+    /// <param name="nest_sym">A nestable delimiter symbol (LBRACE, LPAREN, LBRACK, RBRACE, RPAREN, or RBRACK).</param>
     /// <returns>
-    /// The closing delimiter character (}, ), or ]) if a match exists; 
-    /// empty string otherwise.
+    /// The paired delimiter character: <c>}</c> for LBRACE, <c>)</c> for LPAREN, <c>{</c> for RBRACE,
+    /// <c>(</c> for RPAREN. Note: LBRACK currently returns <c>}</c> and RBRACK returns <c>{</c>
+    /// instead of <c>]</c> and <c>[</c> respectively — this is a known bug that may produce
+    /// misleading error messages for bracket mismatches.
     /// </returns>
+    /// <exception cref="UnexpectedToken">Reported via <see cref="Utils.error"/> when <paramref name="nest_sym"/> is not a recognized nestable symbol.</exception>
     public static string getMatchingNestableLex(string nest_sym)
     {
         switch (nest_sym)
@@ -195,7 +200,7 @@ public class Tokenizer
     /// Rewinds the input stream by moving tokens from past history to future queue.
     /// </summary>
     /// <param name="n">The number of tokens to rewind (default: 1).</param>
-    /// <exception cref="Exception">Thrown when attempting to rewind beyond available history.</exception>
+    /// <exception cref="UnexpectedEndOfInput">Reported via <see cref="Utils.error"/> when attempting to rewind beyond available history.</exception>
     /// <remarks>
     /// Enables backtracking by restoring previously consumed tokens. Tokens moved to the
     /// future queue will be returned by subsequent next() calls before new tokens are read.
@@ -217,9 +222,7 @@ public class Tokenizer
     /// Handles detected nesting errors by throwing detailed exceptions.
     /// </summary>
     /// <param name="tok">The current token being processed when the error is detected.</param>
-    /// <exception cref="Exception">Thrown for unmatched opening delimiters.</exception>
-    /// <exception cref="Exception">Thrown for mismatched closing delimiters.</exception>
-    /// <exception cref="Exception">Thrown for invalid nesting error states.</exception>
+    /// <exception cref="InvalidState">Thrown for invalid nesting error states.</exception>
     private void handleNestingErrors(Token tok)
     {
         if (_nestErr == nestingError.OK)
@@ -243,7 +246,7 @@ public class Tokenizer
     /// Handles unmatched opening delimiter errors.
     /// </summary>
     /// <param name="tok">The current token when the error was detected.</param>
-    /// <exception cref="Exception">Thrown with details about the unclosed delimiter.</exception>
+    /// <exception cref="UnexpectedToken">Thrown with details about the unclosed delimiter.</exception>
     /// <remarks>
     /// Provides context about the unmatched opener including its location and the expected
     /// closing delimiter, along with what was actually found.
@@ -264,7 +267,7 @@ public class Tokenizer
     /// Handles mismatched closing delimiter errors.
     /// </summary>
     /// <param name="tok">The current token causing the mismatch.</param>
-    /// <exception cref="Exception">Thrown with details about the unexpected closer.</exception>
+    /// <exception cref="UnexpectedToken">Thrown with details about the unexpected closer.</exception>
     /// <remarks>
     /// If there's an unclosed opener on the stack, suggests the correct closing delimiter
     /// to help guide the user toward the fix.
@@ -290,7 +293,7 @@ public class Tokenizer
     /// </summary>
     /// <param name="sym">The token symbol for which to get a display representation.</param>
     /// <returns>A readable string representation of the token.</returns>
-    /// <exception cref="Exception">Thrown for unrecognized whitespace token symbols.</exception>
+    /// <exception cref="InvalidToken">Reported via <see cref="Utils.error"/> for unrecognized whitespace token symbols.</exception>
     private string getLexFromSym(string sym)
     {
         if (sym != TokenSymbols.WHITESPACE && sym != TokenSymbols.EOF && sym != TokenSymbols.EOS)
@@ -331,9 +334,16 @@ public class Tokenizer
     /// Increments the line counter and adjusts the column to account for characters
     /// appearing after the newline in the same token.
     /// </remarks>
-    private void updateLineAndColumn(Token tok, int newlineIndex)
+    private void updateLineAndColumn(Token tok)
     {
-        _line++;
+        int newlineIndex = tok.lexeme.LastIndexOf('\n');
+        int newlineCount = 0;
+        foreach (char c in tok.lexeme)
+        {
+            if (c == '\n')
+                newlineCount++;
+        }
+        _line += newlineCount;
         _column = tok.lexeme.Length - 1 - newlineIndex;
     }
 
@@ -392,8 +402,7 @@ public class Tokenizer
     /// enabling statement-oriented parsing while allowing multi-line expressions.
     /// </para>
     /// </remarks>
-    /// <exception cref="Exception">Thrown when no terminal pattern matches the current input position.</exception>
-    /// <exception cref="Exception">Thrown for nesting errors (unmatched or mismatched delimiters).</exception>
+    /// <exception cref="UnexpectedToken">Thrown when no terminal pattern matches the current input position.</exception>
     public Token next()
     {
         bool foundMatch = false;
@@ -428,8 +437,8 @@ public class Tokenizer
                 {
                     int iNewLine = tok.lexeme.LastIndexOf('\n');
                     if (iNewLine != -1)
-                    {                  
-                        updateLineAndColumn(tok, iNewLine);
+                    {   
+                        updateLineAndColumn(tok);
                         
                         // Check for unclosed delimiters at EOF
                         if (isEndOfInput())
@@ -512,7 +521,7 @@ public class Tokenizer
     /// </summary>
     /// <param name="sym">The expected token symbol.</param>
     /// <returns>The consumed token if it matches the expected symbol.</returns>
-    /// <exception cref="Exception">
+    /// <exception cref="UnexpectedToken">
     /// Thrown if the next token doesn't match the expected symbol, with details about
     /// what was expected versus what was found.
     /// </exception>
@@ -536,14 +545,13 @@ public class Tokenizer
     /// in the returned list.
     /// </param>
     /// <returns>A list of consumed tokens up to (but not including) the terminating symbol.</returns>
-    /// <exception cref="Exception">Thrown if the end of input is reached before finding a terminating symbol.</exception>
-    /// <exception cref="Exception">Thrown if nesting becomes imbalanced during collection.</exception>
+    /// <exception cref="UnexpectedEndOfInput">Reported via <see cref="Utils.error"/> if the end of input is reached before a terminating symbol is found.</exception>
     /// <remarks>
     /// This method respects nesting depth; it only terminates on matching symbols that appear
     /// at the same nesting level where collection began. This prevents premature termination
     /// when the terminating symbol appears inside nested structures.
     /// </remarks>
-    public List<Token> readUntil(params string[] terminatingSymbol)
+    public List<Token> readUntil(bool consume = true, params string[] terminatingSymbol)
     {
         if (_index >= _input.Length)
             Utils.error(new UnexpectedEndOfInput("Cannot read past end of input."));
@@ -554,6 +562,9 @@ public class Tokenizer
         while (true)
         {
             string next_sym = peek();
+
+            if (consume == false && nesting == 0 && terminatingSymbol.Contains(next_sym))
+                break;
 
             // Track nesting depth for EOS-suppressing delimiters
             if (isEOSSuppressing(next_sym))
@@ -572,7 +583,7 @@ public class Tokenizer
                         break;
                     default:
                         Utils.error(new InvalidEOSSuppressor($"Expected opener or closer, got: {next_sym}"));
-                        throw new Exception();
+                        throw new UnreachableException();
                 }
                     
                 if (nesting < 0)

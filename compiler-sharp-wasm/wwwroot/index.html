@@ -246,6 +246,13 @@ textarea{
   font-size:.8rem;line-height:1.75;padding:.9rem;resize:none;width:100%;
 }
 .outarea{flex:1;padding:.9rem;overflow-y:auto;font-size:.76rem;line-height:1.8;background:#1e1e1e;}
+.asm-out{font-family:'IBM Plex Mono',monospace;white-space:pre;font-size:.72rem;line-height:1.75;color:#cccccc;}
+.asm-directive{color:#569cd6;}
+.asm-label{color:#4ec9b0;}
+.asm-op{color:#ce9178;}
+.asm-comment{color:#6a9955;font-style:italic;}
+.asm-reg{color:#9cdcfe;}
+.run-error{color:#f48771;font-family:'IBM Plex Mono',monospace;font-size:.74rem;white-space:pre-wrap;}
 .tokrow{display:flex;align-items:center;gap:.7rem;padding:.12rem 0;border-bottom:1px solid rgba(26,34,53,.4);}
 .toktype{font-size:.62rem;padding:.08rem .4rem;min-width:78px;text-align:center;letter-spacing:.03em;}
 .TT-VAR,.TT-TYPE{background:rgba(167,139,250,.12);color:var(--purple);border:1px solid rgba(167,139,250,.2);}
@@ -463,17 +470,15 @@ footer span{color:var(--green);}
 <section id="demo">
   <div class="inner fiu">
     <div class="slabel"><span class="n">03</span> interactive demo</div>
-    <h2>Live Parser.</h2>
+    <h2>Live Compiler.</h2>
     <p style="color:var(--dim);font-size:.85rem;margin-bottom:2rem;line-height:1.85;">
-      Type source code below. Click run, and watch how my compiler tokenizes and parses the source code.
-      The token stream and parse tree are shown side by side.
+      Type source code below and click Run. The compiler tokenizes, parses, type-checks,
+      and emits x86-64 assembly — all running as real C# compiled to WebAssembly in your browser.
     </p>
     <div class="demo-box">
-      <!-- VS Code title bar -->
       <div class="vsc-chrome">
         <div class="vsc-title-text">compiler-sharp</div>
       </div>
-      <!-- Tab bar -->
       <div class="vsc-tabs">
         <div class="vsc-tab vsc-tab-active">TERMINAL</div>
         <div class="vsc-tab">PROBLEMS</div>
@@ -484,20 +489,17 @@ footer span{color:var(--green);}
       <div class="panels">
         <div class="dpanel">
           <div class="ph"><div class="pd" style="background:var(--cyan)"></div>source code</div>
-          <textarea id="codeInput" spellcheck="false">func main() : int{
-    if x != 0{
-        return x + y
-    }
-    return 0
+          <textarea id="codeInput" spellcheck="false">func add(x: int, y: int): int {
+    return x + y
+}
+
+func main(): int {
+    return add(3, 4)
 }</textarea>
         </div>
         <div class="dpanel">
-          <div class="ph"><div class="pd" style="background:var(--green)"></div>token stream</div>
-          <div class="outarea" id="tokOut"><div class="empty-state"><div class="ei">&#11041;</div>Press Run to tokenize</div></div>
-        </div>
-        <div class="dpanel">
-          <div class="ph"><div class="pd" style="background:var(--purple)"></div>parse tree (AST)</div>
-          <div class="outarea" id="astOut"><div class="empty-state"><div class="ei">&#11041;</div>Press Run to parse</div></div>
+          <div class="ph"><div class="pd" style="background:var(--green)"></div>x86-64 assembly</div>
+          <div class="outarea asm-out" id="asmOut"><div class="empty-state"><div class="ei">&#11041;</div>Press Run to compile</div></div>
         </div>
       </div>
     </div>
@@ -539,6 +541,9 @@ footer span{color:var(--green);}
   <div>compiler<span>-sharp</span></div>
 </footer>
 
+<script>
+  function setCompiler(bridge){ window.compiler = bridge; }
+</script>
 
 <!-- 1. Boot WASM runtime — CompilerBridge registers window.compiler when ready -->
 <script src="_framework/blazor.webassembly.js"></script>

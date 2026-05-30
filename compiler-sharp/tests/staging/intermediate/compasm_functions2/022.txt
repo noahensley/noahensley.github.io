@@ -1,0 +1,6 @@
+// {"output": null, "compiles": false}
+    func main(): int {
+        put4(1)
+        return 0
+    }
+

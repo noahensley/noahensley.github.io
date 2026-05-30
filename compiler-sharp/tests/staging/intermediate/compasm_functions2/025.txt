@@ -1,0 +1,5 @@
+// {"output": null, "compiles": false}
+    func main(): int {
+        return 1 + newline()
+    }
+

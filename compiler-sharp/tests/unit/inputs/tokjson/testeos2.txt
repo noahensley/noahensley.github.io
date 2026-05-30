@@ -1,0 +1,4 @@
+    func main(): int {
+        x = do(34)
+        return x
+    }

@@ -1,0 +1,8 @@
+// {"returns": "124", "output": "B"}
+    var x: int
+    func main() : int {
+        x=66
+        putc(x)
+        return 124
+    }
+

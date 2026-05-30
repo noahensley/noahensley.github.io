@@ -1,0 +1,5 @@
+func bar(x:int,y:int){
+}
+func foo(){
+	bar(1,2)
+}

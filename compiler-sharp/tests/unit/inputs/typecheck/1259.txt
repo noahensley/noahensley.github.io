@@ -1,0 +1,5 @@
+func bar(x:int){
+}
+func foo(){
+	bar(1)
+}

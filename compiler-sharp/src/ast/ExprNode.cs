@@ -13,6 +13,14 @@
  *      February 16, 2026
  */
 
+/// <summary>
+/// Defines a valid operand and result type pairing for an operator.
+/// </summary>
+/// <remarks>
+/// Instances of this class describe which operand types an operator
+/// accepts and what result type is produced when the operator is
+/// applied to that operand.
+/// </remarks>
 public class LegalOperand
 {
     /// <summary>
@@ -68,6 +76,7 @@ public class LegalOperand
 /// </remarks>
 public abstract class ExprNode : StmtNode
 {
+    public Temporary? temporary = null;
     /// <summary>
     /// The token representing this expression node's operator or value.
     /// </summary>
@@ -134,7 +143,7 @@ public abstract class ExprNode : StmtNode
     /// Should be called before parsing each new file to ensure consistent node identifiers
     /// across multiple parse operations.
     /// </remarks>
-    public static void ResetCounter()
+    public static void resetCounter()
     {
         _ctr = 0;
     }
@@ -207,12 +216,12 @@ public abstract class ExprNode : StmtNode
         /// <param name="associativity">The operator's associativity (LEFT, RIGHT, or NONE).</param>
         /// <param name="arity">The operator's required number of operands.</param>
         /// <param name="maker">Factory function to construct AST nodes for this operator.</param>
-        public OpInfo(int precedence, Associativity associativity, int arity, Func<Token, ExprNode, ExprNode, ExprNode> unaryMaker)
+        public OpInfo(int precedence, Associativity associativity, int arity, Func<Token, ExprNode, ExprNode, ExprNode> binaryMaker)
         {
             this.precedence = precedence;
             this.associativity = associativity;
             this.arity = arity;
-            this.maker = (token, args) => unaryMaker(token, args[0], args[1]);
+            this.maker = (token, args) => binaryMaker(token, args[0], args[1]);
         }
 
         /// <summary>
@@ -272,6 +281,8 @@ public abstract class ExprNode : StmtNode
         { "array-access" ,  new (500, Associativity.LEFT,  2, (tok, structure, right)  => {return new ArrayNode         (tok, structure, right);    }) },
         { "INCOP"        ,  new (500, Associativity.LEFT,  1, (tok, term)              => {return new IncNode           (tok, term);                }) },
         { "DECOP"        ,  new (500, Associativity.LEFT,  1, (tok, term)              => {return new DecNode           (tok, term);                }) },
+        { "NEWOP"        ,  new (400, Associativity.RIGHT, 1, (tok, term)              => {return new NewNode           (tok, term);                }) },
+        { "CASTOP"       ,  new (300, Associativity.LEFT,  2, (tok, left, right)       => {return new CastNode          (tok, left, right);         }) },
         { "POWOP"        ,  new (220, Associativity.RIGHT, 2, (tok, left, right)       => {return new PowNode           (tok, left, right);         }) },
         { "PREINCOP"     ,  new (210, Associativity.RIGHT, 1, (tok, term)              => {return new PreIncNode        (tok, term);                }) },
         { "PREDECOP"     ,  new (210, Associativity.RIGHT, 1, (tok, term)              => {return new PreDecNode        (tok, term);                }) },
@@ -290,6 +301,13 @@ public abstract class ExprNode : StmtNode
         { "ASSIGNOP"     ,  new (80,  Associativity.RIGHT, 2, (tok, left, right)       => {return new AssignNode        (tok, left, right);         }) },
         { "COMMAOP"      ,  new (10,  Associativity.LEFT,  2, (tok, left, right)       => {return new CommaNode         (tok, left, right);         }) },
     };
+
+    public virtual ResultLocation getResultLocation()
+    {
+        if (this.temporary == null)
+            throw new Exception("Internal copmmiler error: expression with unintialized temporary count.");
+        return this.temporary;
+    }
 
     /// <summary>
     /// Checks if a token symbol represents a binary operator.
@@ -374,6 +392,10 @@ public abstract class ExprNode : StmtNode
         }
     }
 
+    /// <summary>
+    /// Returns <c>true</c> when the token pair indicates a function call or array access should be
+    /// injected as a synthetic operator (e.g., <c>id(</c>, <c>)(</c>, <c>][</c>).
+    /// </summary>
     private static bool isCallOrIndex(Token tok, Token next)
     {
         return (tok.sym == TokenSymbols.ID     && next.sym == TokenSymbols.LPAREN) || // e.g. - func()
@@ -424,30 +446,36 @@ public abstract class ExprNode : StmtNode
     /// </item>
     /// </list>
     /// </remarks>
-    /// <exception cref="Exception">
-    /// Thrown when an unrecognized token is encountered that is neither an operand, grouper, nor known operator.
+    /// <exception cref="MissingExpression">
+    /// Reported via <see cref="Utils.error"/> when an unrecognized token is encountered that is neither an operand, grouper, nor known operator.
     /// </exception>
     static void handleToken(Tokenizer T, ref AutomatonState state, Token tok, Stack<Token> operatorStack, Stack<ExprNode> termStack) // ref => C# global changes
     {
         if (tok.sym == TokenSymbols.SUBOP && state == AutomatonState.EXPECTING_TERM_OR_PREFIX_OP)
-            tok.sym = TokenSymbols.NEGATEOP; // magically change it
+            tok.sym = TokenSymbols.NEGATEOP;
         if (tok.sym == TokenSymbols.INCOP && state == AutomatonState.EXPECTING_TERM_OR_PREFIX_OP)
-            tok.sym = TokenSymbols.PREINCOP; // magically change it
+            tok.sym = TokenSymbols.PREINCOP;
         if (tok.sym == TokenSymbols.DECOP && state == AutomatonState.EXPECTING_TERM_OR_PREFIX_OP)
-            tok.sym = TokenSymbols.PREDECOP; // magically change it
+            tok.sym = TokenSymbols.PREDECOP;
 
         if (tok.sym == TokenSymbols.NUM || tok.sym == TokenSymbols.ID || tok.sym == TokenSymbols.FNUM ||
-            tok.sym == TokenSymbols.BOOLCONST || tok.sym == TokenSymbols.STRINGCONST)
+            tok.sym == TokenSymbols.BOOLCONST || tok.sym == TokenSymbols.STRINGCONST || tok.sym == TokenSymbols.TYPE ||
+            tok.sym == TokenSymbols.THIS)
         {
             if (state == AutomatonState.EXPECTING_TERM_OR_PREFIX_OP)
             {
                 // Operands go directly to term stack
-                termStack.Push(new Term(tok));
+                if (tok.sym == TokenSymbols.ID || tok.sym == TokenSymbols.THIS)
+                    termStack.Push(new Variable(tok));
+                else if (tok.sym == TokenSymbols.TYPE)
+                    termStack.Push(new CastType(tok));
+                else   
+                    termStack.Push(new Term(tok));
                 state = AutomatonState.EXPECTING_INFIX_OR_POSTFIX_OP;
-            }
+            }               
             else
             {
-                Utils.error(new InvalidState($"Expecting term on line {T.getLine()}, got: {tok.sym}"));
+                Utils.error(new InvalidState($"Expecting term or prefix operator on line {T.getLine()}, got: {tok.lexeme}"));
             }
         }
         else if (Tokenizer.isNestingOpener(tok.sym))
@@ -554,7 +582,7 @@ public abstract class ExprNode : StmtNode
                                 });
                                 break;
                             default:
-                                Utils.error(new InvalidState($"Expecting postfix unary operator on line {T.getLine()}, got: {tok.sym}"));
+                                Utils.error(new InvalidState($"Expecting infix or postfix unary operator on line {T.getLine()}, got: {tok.sym}"));
                                 break;
                             // don't change state; operator can be repeated
                         }
@@ -573,6 +601,14 @@ public abstract class ExprNode : StmtNode
             Utils.error(new MissingExpression($"Expected term or operator at line {tok.line}, got: {tok.sym}")); // does tok.line fix bad lines (using T.getLine())?
     }
 
+    /// <summary>
+    /// Determines whether the token stream is positioned at the start of a parseable expression.
+    /// </summary>
+    /// <param name="T">The tokenizer to peek at.</param>
+    /// <returns>
+    /// <c>true</c> if the next token is a valid expression-starting symbol (numeric literal,
+    /// identifier, left parenthesis, or a prefix unary operator); otherwise <c>false</c>.
+    /// </returns>
     public static bool canParse(Tokenizer T)
     {
         string sym = T.peek();
@@ -587,6 +623,8 @@ public abstract class ExprNode : StmtNode
             case TokenSymbols.SUBOP:
             case TokenSymbols.BITNOTOP:
             case TokenSymbols.BOOLNOTOP:
+            case TokenSymbols.THIS:
+            case TokenSymbols.NEWOP:
                 return true;
         }
         return false;
@@ -613,13 +651,13 @@ public abstract class ExprNode : StmtNode
     /// a trailing newline after an expression.
     /// </para>
     /// </remarks>
-    /// <exception cref="Exception">Thrown when no tokens are found (empty expression).</exception>
-    /// <exception cref="Exception">Thrown when the final reduction does not result in exactly one expression tree, indicating malformed input.</exception>
-    public static ExprNode parse(Tokenizer T)
+    /// <exception cref="MissingExpression">Reported via <see cref="Utils.error"/> when no tokens are found (empty expression).</exception>
+    /// <exception cref="InvalidExpression">Reported via <see cref="Utils.error"/> when the final reduction does not result in exactly one expression tree, indicating malformed input.</exception>
+    public static new ExprNode parse(Tokenizer T)
     {
         // Read tokens until we hit a statement-ending or block-starting symbol
         // EOF is needed for files that end without a newline after an expression
-        List<Token> tokens = T.readUntil(TokenSymbols.LBRACE, TokenSymbols.EOS, TokenSymbols.EOF);
+        List<Token> tokens = T.readUntil(consume:true, TokenSymbols.LBRACE, TokenSymbols.EOS, TokenSymbols.EOF);
         Stack<Token> operatorStack = new Stack<Token>();
         Stack<ExprNode> termStack = new Stack<ExprNode>();
 

@@ -7,40 +7,53 @@
  * for this file on the following dates:
  *      January 25, 2026,
  *      January 28, 2026
+ *
+ * Additional AI Usage: ChatGPT (OpenAI) was used on March 3, 2026 to assist
+ * in refactoring the typeCheck implementation to eliminate duplicated logic
+ * between return statement subclasses by applying a template method design
+ * pattern and centralizing semantic validation in the base class.
  */
+
+using System.Diagnostics;
+using ASM;
 
 /// <summary>
 /// Abstract base class for return statement nodes in the abstract syntax tree.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Return statements control the exit from functions and optionally specify a value
-/// to return to the caller. The two concrete implementations handle different cases:
+/// A return statement terminates execution of the enclosing function and optionally
+/// supplies a value to the caller.
+/// </para>
+/// <para>
+/// Two concrete subclasses represent the possible forms:
 /// </para>
 /// <list type="bullet">
-/// <item><b>ReturnExprNode</b>: Returns an expression value (for non-void functions)</item>
-/// <item><b>ReturnVoidNode</b>: Returns nothing (for void functions or early exits)</item>
+/// <item><b>ReturnExprNode</b>: Returns the value of an expression.</item>
+/// <item><b>ReturnVoidNode</b>: Returns no value.</item>
 /// </list>
 /// <para>
-/// During semantic analysis, the return statement's type is checked against the
-/// containing function's declared return type to ensure type safety.
+/// During semantic analysis, the returned type is validated against the declared
+/// return type of the enclosing function. The base class implements this validation
+/// using a template method pattern: subclasses provide the returned type while
+/// the base class performs the shared comparison logic.
 /// </para>
 /// </remarks>
-public abstract class ReturnNode : StmtNode 
+public abstract class ReturnNode : StmtNode
 {
     /// <summary>
     /// The RETURN keyword token.
     /// </summary>
     /// <remarks>
-    /// Stored for error reporting (showing the location of the return statement) and
-    /// for tracking the source position during code generation.
+    /// Stored for diagnostic reporting and source position tracking during
+    /// later compilation phases.
     /// </remarks>
     public Token retToken;
 
     /// <summary>
-    /// Creates a return node with the specified RETURN token.
+    /// Initializes a return statement node.
     /// </summary>
-    /// <param name="retToken">The RETURN keyword token from the source.</param>
+    /// <param name="retToken">The RETURN keyword token from the source program.</param>
     protected ReturnNode(Token retToken)
     {
         this.retToken = retToken;
@@ -49,106 +62,178 @@ public abstract class ReturnNode : StmtNode
     /// <summary>
     /// Parses a return statement from the token stream.
     /// </summary>
-    /// <param name="T">The tokenizer containing the input token stream.</param>
+    /// <param name="T">The tokenizer providing input tokens.</param>
     /// <returns>
-    /// Either a ReturnVoidNode (if no expression follows) or ReturnExprNode (if an expression follows).
+    /// A <see cref="ReturnVoidNode"/> if no expression follows the RETURN keyword, or a
+    /// <see cref="ReturnExprNode"/> if an expression is present.
     /// </returns>
     /// <remarks>
     /// <para>
-    /// Expected syntax:
+    /// Supported syntax:
     /// </para>
     /// <code>
-    /// return
-    /// return expression
+    /// return;
+    /// return expression;
     /// </code>
     /// <para>
-    /// The parser determines which type of return statement by checking the token following
-    /// the RETURN keyword:
-    /// </para>
-    /// <list type="bullet">
-    /// <item>EOS (end-of-statement): Creates ReturnVoidNode (no value returned)</item>
-    /// <item>Any other token: Parses an expression and creates ReturnExprNode</item>
-    /// </list>
-    /// <para>
-    /// Both forms require an EOS token to terminate the statement. For void returns, the
-    /// EOS immediately follows the RETURN keyword. For expression returns, the EOS follows
-    /// the expression.
+    /// If the token immediately following <c>RETURN</c> is an end-of-statement
+    /// marker, a void return node is created. Otherwise, an expression is parsed
+    /// and wrapped in a return expression node.
     /// </para>
     /// </remarks>
-    /// <exception cref="Exception">
-    /// Thrown when the RETURN keyword token is not found.
-    /// </exception>
-    /// <exception cref="Exception">
-    /// Thrown when the end-of-statement token is missing after the return statement.
+    /// <exception cref="UnexpectedToken">
+    /// Reported via <see cref="Utils.error"/> if the expected RETURN token or EOS is absent.
     /// </exception>
     public new static ReturnNode parse(Tokenizer T)
     {
         Token ret = T.expect(TokenSymbols.RETURN);
-        
+
         if (T.peek() == TokenSymbols.EOS)
         {
-            // Void return: return;
             T.expect(TokenSymbols.EOS);
             return new ReturnVoidNode(ret);
         }
         else
         {
-            // Expression return: return expr;
             ExprNode expr = ExprNode.parse(T);
             T.expect(TokenSymbols.EOS);
-            return new ReturnExprNode(ret, expr);
+            return new ReturnExprNode(ret, expr, expr.type);
         }
     }
-    
+
     /// <summary>
-    /// Checks if the next token can be parsed as a return statement.
+    /// Determines whether the upcoming token sequence represents a return statement.
     /// </summary>
-    /// <param name="T">The tokenizer to check.</param>
-    /// <returns>True if the next token is RETURN; false otherwise.</returns>
+    /// <param name="T">The tokenizer to inspect.</param>
+    /// <returns><c>true</c> if the next token is RETURN; otherwise <c>false</c>.</returns>
     /// <remarks>
-    /// Used by the statement parser to determine which type of statement to parse.
-    /// This lookahead allows the parser to dispatch to the appropriate parsing method
-    /// without consuming tokens.
+    /// Used by higher-level statement parsing logic to select the correct
+    /// parsing routine without consuming input.
     /// </remarks>
     public static bool canParse(Tokenizer T)
     {
         return T.peek() == TokenSymbols.RETURN;
     }
+
+    /// <summary>
+    /// Retrieves the declared return type of the enclosing function definition.
+    /// </summary>
+    /// <returns>The return type specified in the containing function declaration.</returns>
+    /// <remarks>
+    /// Traverses the parent chain until a <see cref="FuncdefNode"/> is located.
+    /// If no enclosing function is found, a semantic error is reported, as return
+    /// statements are only valid within function bodies.
+    /// </remarks>
+    /// <exception cref="InvalidExpression">
+    /// Reported via <see cref="Utils.error"/> if no enclosing <see cref="FuncdefNode"/> exists.
+    /// </exception>
+    protected VarType getEnclosingReturnType()
+    {
+        TreeNode? cur = this.parent;
+
+        while (cur is not FuncdefNode)
+        {
+            if (cur == null)
+            {
+                Utils.error(new InvalidExpression(
+                    $"Unexpected return with no enclosing function on line {this.retToken.line}"
+                ));
+                throw new UnreachableException();
+            }
+
+            cur = cur.parent;
+        }
+
+        FuncdefNode? fdef = cur as FuncdefNode;
+        if (fdef == null)
+            throw new Exception(
+                $"Internal compiler error: unexpected null symbol in type checking phase " +
+                $"while processing function '{this.retToken.lexeme}' at line {this.retToken.line}"
+            );
+
+        if (fdef.info == null)
+            throw new Exception("Internal compiler error: function info was null during return type check -- function parsing failed to assign non-null info to function.");
+        FuncType? target = fdef.info.type as FuncType;
+        if (target == null)
+            throw new Exception(
+                $"Internal compiler error: unexpected null symbol in type checking phase " +
+                $"while processing function '{this.retToken.lexeme}' at line {this.retToken.line}"
+            );
+
+        return target.returnType;
+    }
+
+    /// <summary>
+    /// Gets the type produced by this return statement.
+    /// </summary>
+    /// <returns>The type being returned by the statement.</returns>
+    /// <remarks>
+    /// Implemented by subclasses to supply the specific returned type.
+    /// Expression returns provide the expression's type; void returns provide <see cref="VarType.Void"/>.
+    /// </remarks>
+    protected abstract VarType getReturnedType();
+
+    /// <summary>
+    /// Validates that the type returned by this statement matches the enclosing function's declared return type.
+    /// </summary>
+    /// <remarks>
+    /// Compares the type produced by this return statement with the declared return type of the
+    /// enclosing function. If the types differ, a <see cref="ReturnMismatch"/> error is reported.
+    /// </remarks>
+    /// <exception cref="ReturnMismatch">
+    /// Reported via <see cref="Utils.error"/> when the returned type does not match the function's
+    /// declared return type.
+    /// </exception>
+    public override void typeCheck()
+    {
+        VarType expected = getEnclosingReturnType();
+        VarType actual = getReturnedType();
+
+        FuncType? factual = actual as FuncType;
+        if (factual != null)
+            actual = factual.returnType;
+
+        if (actual != expected)
+        {
+            Utils.error(new ReturnMismatch(
+                $"Return type on line {this.retToken.line} does not match parent function declaration. " +
+                $"Got {actual}, expected {expected}"
+            ));
+        }
+    }
 }
 
 /// <summary>
-/// Represents a return statement that returns an expression value.
+/// Represents a return statement that evaluates and returns an expression.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Used for functions that have a non-void return type (int, float, string, etc.).
-/// The expression's type must match the function's declared return type, which is
-/// verified during semantic analysis.
+/// Used in functions that declare a non-void return type.
+/// The enclosed expression is evaluated and its resulting type must match
+/// the function's declared return type.
 /// </para>
 /// <para>
-/// Example: In a function declared as <c>func getValue() : int</c>, the statement
-/// <c>return 42</c> would be represented as a ReturnExprNode containing a numeric
-/// literal expression.
+/// Semantic validation is inherited from <see cref="ReturnNode"/>.
 /// </para>
 /// </remarks>
-public class ReturnExprNode : ReturnNode 
+public class ReturnExprNode : ReturnNode
 {
     /// <summary>
     /// The expression whose value is returned to the caller.
     /// </summary>
     /// <remarks>
-    /// This expression is evaluated at runtime and its value becomes the return value
-    /// of the function. The expression's type must be compatible with the function's
-    /// declared return type.
+    /// This expression subtree is evaluated at runtime. Its type is used during
+    /// semantic analysis to validate return-type correctness.
     /// </remarks>
     public ExprNode expr;
-    
+
     /// <summary>
-    /// Creates a return expression node.
+    /// Initializes a return expression node.
     /// </summary>
     /// <param name="retToken">The RETURN keyword token.</param>
     /// <param name="expr">The expression to evaluate and return.</param>
-    public ReturnExprNode(Token retToken, ExprNode expr) : base(retToken)
+    /// <param name="type">The statically determined type of the expression (may be null before type inference).</param>
+    public ReturnExprNode(Token retToken, ExprNode expr, VarType? type) : base(retToken)
     {
         this.expr = expr;
     }
@@ -156,48 +241,72 @@ public class ReturnExprNode : ReturnNode
     /// <summary>
     /// Gets the child nodes of this return expression statement.
     /// </summary>
-    /// <returns>A list containing only the expression being returned.</returns>
-    /// <remarks>
-    /// The expression subtree is included so tree traversal algorithms can visit
-    /// and analyze the returned expression.
-    /// </remarks>
+    /// <returns>A list containing the expression subtree.</returns>
     public override List<TreeNode> getChildren()
     {
-        return new List<TreeNode>(){expr};
+        return new List<TreeNode>() { expr };
     }
 
+    /// <summary>
+    /// Type inference for expression return nodes. Not yet implemented.
+    /// </summary>
     public override void setType()
     {
-        return; // not implemented
+        return; // no type setting needed
     }
 
-
-    public override void typeCheck()
+    /// <summary>
+    /// Provides the type returned by this statement.
+    /// </summary>
+    /// <returns>The resolved type of the enclosed expression.</returns>
+    protected override VarType getReturnedType()
     {
-        return; // not implemented
+        if ((this.expr as NewNode) != null)
+        {
+            NewNode nnode = (this.expr as NewNode)!;
+            if (nnode.term == null)
+                throw new Exception("Internal compiler error: NewNode was initialized with null term.");
+            if (nnode.term.type == null)
+                throw new Exception($"Internal compiler error: term {nnode.term.token.lexeme} type was not set during type setting phase.");
+            return nnode.term.type;
+        }
+        else if (this.expr.type == null)
+            throw new Exception(
+                $"Internal compiler error: unexpected null symbol in type checking phase " +
+                $"while processing function '{this.retToken.lexeme}' at line {this.retToken.line}"
+            );
+            
+        return this.expr.type;
+    }
+
+    public override void genCode()
+    {
+        this.expr.genCode();
+        expr.getResultLocation().copyToRegister(Register.rax, Register.rbx);
+        Asm.emit(
+            new Comment("returning expression"),
+            new OpMovRegReg(src: Register.rbp, dst: Register.rsp),
+            new OpPopReg(Register.rbp),
+            new OpRet()
+        );
     }
 }
 
 /// <summary>
-/// Represents a return statement that returns no value (void).
+/// Represents a return statement that produces no value.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Used in two scenarios:
+/// Used in functions declared with a void return type, or to exit such functions early.
 /// </para>
-/// <list type="number">
-/// <item>Functions with void return type that need to exit early</item>
-/// <item>The final return at the end of a void function (optional in some languages)</item>
-/// </list>
 /// <para>
-/// Example: In a function declared as <c>func printMessage()</c> (no return type = void),
-/// the statement <c>return</c> would be represented as a ReturnVoidNode.
+/// Semantic validation is inherited from <see cref="ReturnNode"/>.
 /// </para>
 /// </remarks>
-public class ReturnVoidNode : ReturnNode 
+public class ReturnVoidNode : ReturnNode
 {
     /// <summary>
-    /// Creates a void return node.
+    /// Initializes a void return node.
     /// </summary>
     /// <param name="retToken">The RETURN keyword token.</param>
     public ReturnVoidNode(Token retToken) : base(retToken)
@@ -207,22 +316,36 @@ public class ReturnVoidNode : ReturnNode
     /// <summary>
     /// Gets the child nodes of this void return statement.
     /// </summary>
-    /// <returns>An empty list, as void returns have no expression to evaluate.</returns>
-    /// <remarks>
-    /// Returns an empty list because there is no expression subtree to traverse.
-    /// </remarks>
+    /// <returns>An empty list, as void returns have no expression subtree.</returns>
     public override List<TreeNode> getChildren()
     {
         return new List<TreeNode>();
     }
 
+    /// <summary>
+    /// Type inference for void return nodes. Not yet implemented.
+    /// </summary>
     public override void setType()
     {
-        return; // not implemented
+        return; // no type setting needed
     }
 
-    public override void typeCheck()
+    /// <summary>
+    /// Provides the type returned by this statement.
+    /// </summary>
+    /// <returns><see cref="VarType.Void"/>.</returns>
+    protected override VarType getReturnedType()
     {
-        return; // not implemented
+        return VarType.Void;
+    }
+
+    public override void genCode()
+    {
+        Asm.emit(
+            new Comment($"return from {this.retToken}"),
+            new OpMovRegReg( src: Register.rbp, dst: Register.rsp),
+            new OpPopReg(Register.rbp),
+            new OpRet()
+        );
     }
 }

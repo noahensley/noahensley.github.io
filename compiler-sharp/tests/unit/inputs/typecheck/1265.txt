@@ -1,0 +1,6 @@
+func bar(x:int,y:float){
+}
+func foo(){
+	var x: int
+	bar(x,2.0)
+}

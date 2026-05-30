@@ -73,7 +73,6 @@ public class CompilerBridge
     {
         try
         {
-            ExprNode.ResetCounter();
             var tokenizer = MakeTokenizer(source);
             var tree      = ProgramNode.parse(tokenizer);
             var sw        = new StringWriter();
@@ -119,7 +118,6 @@ public class CompilerBridge
         var sb = new StringBuilder();
         try
         {
-            ExprNode.ResetCounter();
             var tokenizer = MakeTokenizer(source);
             var tree      = ProgramNode.parse(tokenizer);
 
@@ -174,6 +172,17 @@ public class CompilerBridge
         {
             return "{\"legal\": false}";
         }
+    }
+
+    /// <summary>
+    /// Runs the full code-generation pipeline and returns the x86-64 AT&amp;T assembly
+    /// as a string. Does NOT invoke clang or the linker — just the codegen pass.
+    /// Returns a string prefixed with "error:" if compilation fails.
+    /// </summary>
+    [JSInvokable]
+    public string RunAsmText(string source)
+    {
+        return Utils.CompileAsmToString(source);
     }
 
     // ── Tree walk ─────────────────────────────────────────────────────────────

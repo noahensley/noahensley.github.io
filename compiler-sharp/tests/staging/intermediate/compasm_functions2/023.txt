@@ -1,0 +1,7 @@
+// {"returns": 66, "input": "A"}
+func main(): int {
+    var x: int
+    x = getc()
+    return x+1
+}
+

@@ -12,6 +12,11 @@
 *.exe
 *.dll
 *.pdb
+*.o
+*.asm
+
+# Linker outputs
+*.lib
 
 # User-specific files
 *.user

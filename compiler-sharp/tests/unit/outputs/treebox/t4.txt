@@ -1,0 +1,92 @@
+﻿ProgramNode
+├─funcs : List<FuncdefNode> with 1 element
+│ └─[0] : FuncdefNode
+│   ├─maxTemporaries : 0
+│   ├─info : VarInfo
+│   │ ├─token : Token{ sym=ID lexeme=foo line=1 column=5 }
+│   │ ├─type : FuncType
+│   │ │ ├─returnType : VoidType
+│   │ │ └─parameters : List<ParamInfo> with 0 elements
+│   │ └─location : GlobalLocation
+│   ├─stmts : StmtsNode
+│   │ ├─stmts : List<StmtNode> with 1 element
+│   │ │ └─[0] : CondNode
+│   │ │   ├─clause : Token{ sym=IF lexeme=if line=2 column=4 }
+│   │ │   ├─alternatives : List<CondNode> with 2 elements
+│   │ │   │ ├─[0] : CondNode
+│   │ │   │ │ ├─clause : Token{ sym=ELIF lexeme=else if line=5 column=6 }
+│   │ │   │ │ ├─alternatives : List<CondNode> with 0 elements
+│   │ │   │ │ ├─condition : Term
+│   │ │   │ │ │ ├─temporary : null
+│   │ │   │ │ │ ├─token : Token{ sym=NUM lexeme=3 line=5 column=14 }
+│   │ │   │ │ │ ├─type : null
+│   │ │   │ │ │ ├─unique_id : n3
+│   │ │   │ │ │ └─parent : null
+│   │ │   │ │ ├─stmts : StmtsNode
+│   │ │   │ │ │ ├─stmts : List<StmtNode> with 1 element
+│   │ │   │ │ │ │ └─[0] : ReturnExprNode
+│   │ │   │ │ │ │   ├─expr : Term
+│   │ │   │ │ │ │   │ ├─temporary : null
+│   │ │   │ │ │ │   │ ├─token : Token{ sym=NUM lexeme=30 line=6 column=15 }
+│   │ │   │ │ │ │   │ ├─type : null
+│   │ │   │ │ │ │   │ ├─unique_id : n4
+│   │ │   │ │ │ │   │ └─parent : null
+│   │ │   │ │ │ │   ├─retToken : Token{ sym=RETURN lexeme=return line=6 column=8 }
+│   │ │   │ │ │ │   └─parent : null
+│   │ │   │ │ │ └─parent : null
+│   │ │   │ │ └─parent : null
+│   │ │   │ └─[1] : CondNode
+│   │ │   │   ├─clause : Token{ sym=ELIF lexeme=else if line=7 column=6 }
+│   │ │   │   ├─alternatives : List<CondNode> with 0 elements
+│   │ │   │   ├─condition : Term
+│   │ │   │   │ ├─temporary : null
+│   │ │   │   │ ├─token : Token{ sym=NUM lexeme=4 line=7 column=14 }
+│   │ │   │   │ ├─type : null
+│   │ │   │   │ ├─unique_id : n5
+│   │ │   │   │ └─parent : null
+│   │ │   │   ├─stmts : StmtsNode
+│   │ │   │   │ ├─stmts : List<StmtNode> with 1 element
+│   │ │   │   │ │ └─[0] : ReturnExprNode
+│   │ │   │   │ │   ├─expr : Term
+│   │ │   │   │ │   │ ├─temporary : null
+│   │ │   │   │ │   │ ├─token : Token{ sym=NUM lexeme=40 line=8 column=15 }
+│   │ │   │   │ │   │ ├─type : null
+│   │ │   │   │ │   │ ├─unique_id : n6
+│   │ │   │   │ │   │ └─parent : null
+│   │ │   │   │ │   ├─retToken : Token{ sym=RETURN lexeme=return line=8 column=8 }
+│   │ │   │   │ │   └─parent : null
+│   │ │   │   │ └─parent : null
+│   │ │   │   └─parent : null
+│   │ │   ├─condition : Term
+│   │ │   │ ├─temporary : null
+│   │ │   │ ├─token : Token{ sym=NUM lexeme=2 line=2 column=7 }
+│   │ │   │ ├─type : null
+│   │ │   │ ├─unique_id : n0
+│   │ │   │ └─parent : null
+│   │ │   ├─stmts : StmtsNode
+│   │ │   │ ├─stmts : List<StmtNode> with 2 elements
+│   │ │   │ │ ├─[0] : ReturnExprNode
+│   │ │   │ │ │ ├─expr : Term
+│   │ │   │ │ │ │ ├─temporary : null
+│   │ │   │ │ │ │ ├─token : Token{ sym=NUM lexeme=20 line=3 column=15 }
+│   │ │   │ │ │ │ ├─type : null
+│   │ │   │ │ │ │ ├─unique_id : n1
+│   │ │   │ │ │ │ └─parent : null
+│   │ │   │ │ │ ├─retToken : Token{ sym=RETURN lexeme=return line=3 column=8 }
+│   │ │   │ │ │ └─parent : null
+│   │ │   │ │ └─[1] : ReturnExprNode
+│   │ │   │ │   ├─expr : Term
+│   │ │   │ │   │ ├─temporary : null
+│   │ │   │ │   │ ├─token : Token{ sym=NUM lexeme=21 line=4 column=15 }
+│   │ │   │ │   │ ├─type : null
+│   │ │   │ │   │ ├─unique_id : n2
+│   │ │   │ │   │ └─parent : null
+│   │ │   │ │   ├─retToken : Token{ sym=RETURN lexeme=return line=4 column=8 }
+│   │ │   │ │   └─parent : null
+│   │ │   │ └─parent : null
+│   │ │   └─parent : null
+│   │ └─parent : null
+│   ├─lbl : Label{ lbl=lbl0 }
+│   └─parent : null
+├─globals : List<VardeclNode> with 0 elements
+└─parent : null

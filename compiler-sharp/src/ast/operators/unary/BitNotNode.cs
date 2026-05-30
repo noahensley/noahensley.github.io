@@ -8,21 +8,22 @@
  *      February 16, 2026
  */
 
+using ASM;
+
+
 /// <summary>
-/// Represents a bitwise logical "not" operation in the expression tree.
+/// Represents a bitwise NOT operation in the expression tree.
 /// </summary>
 /// <remarks>
-/// Handles BITNOTOP token ~.
+/// Handles the BITNOTOP token <c>~</c>.
 /// </remarks>
 public class BitNotNode : UnaryOperator
 {
     /// <summary>
-    /// Defines the valid operand type combinations for the bitwise not operator.
+    /// Defines the valid operand type combinations for the bitwise NOT operator.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Bitwise not is legal for the following type:
-    /// </para>
+    /// Bitwise NOT is legal for the following type:
     /// <list type="bullet">
     /// <item>~Int → Int</item>
     /// </list>
@@ -33,16 +34,30 @@ public class BitNotNode : UnaryOperator
     ];
 
     /// <summary>
-    /// Creates a new bitwise logical "not" operation node.
+    /// Creates a new bitwise NOT node.
     /// </summary>
-    /// <param name="tok">The BITNOTOP token (~).</param>
+    /// <param name="tok">The BITNOTOP token (<c>~</c>).</param>
     /// <param name="term">The single operand expression.</param>
     public BitNotNode(Token tok, ExprNode term) : base(tok, term, legalBitNotOperands)
     {
     }
 
+    /// <summary>
+    /// Type validation for bitwise NOT nodes. Not yet implemented.
+    /// </summary>
     public override void typeCheck()
     {
         return; // not implemented
     }
+
+    public override void genCode()
+    {
+        base.genCode();
+        Asm.emit(
+            new Comment("*** OpBitNot ***"),
+            new OpBitNot(Register.rax)
+        );
+        this.getResultLocation()!.copyFromRegister(Register.rax, StorageClass.STATIC);
+    }
+
 }

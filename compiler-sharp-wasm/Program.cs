@@ -14,8 +14,7 @@ var host = builder.Build();
 
 var bridge = host.Services.GetRequiredService<CompilerBridge>();
 var js     = host.Services.GetRequiredService<IJSRuntime>();
-await js.InvokeVoidAsync("eval",
-    "window.compiler = arguments[0]",
-    DotNetObjectReference.Create(bridge));
+
+await js.InvokeVoidAsync("setCompiler", DotNetObjectReference.Create(bridge));
 
 await host.RunAsync();

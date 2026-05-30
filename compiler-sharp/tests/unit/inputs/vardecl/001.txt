@@ -1,0 +1,10 @@
+func foo(x:int): int{
+	return x+1
+}
+func bar(): int{
+	return x+1
+}
+var x: int
+func baz(): int{
+	return x+1
+}

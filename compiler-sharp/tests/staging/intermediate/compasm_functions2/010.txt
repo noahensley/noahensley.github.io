@@ -1,0 +1,6 @@
+// {"returns": "2", "output": "F"}
+func main(): int {
+    putc(70)
+    return 2
+}
+

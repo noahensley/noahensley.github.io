@@ -1,5 +1,5 @@
 /*
- * File: ShiftNode.cs
+ * File: UnRShiftNode.cs
  * Author: Noah Hensley
  * Course: ETEC4401
  * 
@@ -7,7 +7,7 @@
  * for this file on the following dates:
  *      February 17, 2026
  */
-
+using ASM;
 /// <summary>
 /// Represents an unsigned right shift operation in the expression tree.
 /// </summary>
@@ -42,8 +42,27 @@ public class UnRShiftNode : BinaryOperator
     {
     }
 
+    /// <summary>
+    /// Type validation for this node. Not yet implemented.
+    /// </summary>
     public override void typeCheck()
     {
         return; // not implemented
     }
+
+    public override void genCode()
+    {
+        base.genCode();
+
+        Asm.emit(
+            new Comment("*** OpShiftRightLogical ***"),
+            new OpMovRegReg(src: Register.rbx, dst: Register.rcx),
+            new OpShiftRightLogical(reg: Register.rax),
+            new OpXor(Register.rdx, Register.rdx),
+            new OpCmpRegImm(Register.rcx, 63),
+            new OpCmovCC("g", src: Register.rdx, dst: Register.rax)
+        );
+        this.getResultLocation()!.copyFromRegister(Register.rax, StorageClass.STATIC);
+    }
+
 }

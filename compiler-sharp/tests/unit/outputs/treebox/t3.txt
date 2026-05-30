@@ -1,0 +1,49 @@
+﻿ProgramNode
+├─funcs : List<FuncdefNode> with 1 element
+│ └─[0] : FuncdefNode
+│   ├─maxTemporaries : 0
+│   ├─info : VarInfo
+│   │ ├─token : Token{ sym=ID lexeme=thing line=1 column=5 }
+│   │ ├─type : FuncType
+│   │ │ ├─returnType : VoidType
+│   │ │ └─parameters : List<ParamInfo> with 0 elements
+│   │ └─location : GlobalLocation
+│   ├─stmts : StmtsNode
+│   │ ├─stmts : List<StmtNode> with 2 elements
+│   │ │ ├─[0] : WhileNode
+│   │ │ │ ├─clause : Token{ sym=WHILE lexeme=while line=2 column=4 }
+│   │ │ │ ├─condition : Term
+│   │ │ │ │ ├─temporary : null
+│   │ │ │ │ ├─token : Token{ sym=NUM lexeme=10 line=2 column=10 }
+│   │ │ │ │ ├─type : null
+│   │ │ │ │ ├─unique_id : n0
+│   │ │ │ │ └─parent : null
+│   │ │ │ ├─stmts : StmtsNode
+│   │ │ │ │ ├─stmts : List<StmtNode> with 3 elements
+│   │ │ │ │ │ ├─[0] : ReturnVoidNode
+│   │ │ │ │ │ │ ├─retToken : Token{ sym=RETURN lexeme=return line=3 column=8 }
+│   │ │ │ │ │ │ └─parent : null
+│   │ │ │ │ │ ├─[1] : ReturnVoidNode
+│   │ │ │ │ │ │ ├─retToken : Token{ sym=RETURN lexeme=return line=4 column=8 }
+│   │ │ │ │ │ │ └─parent : null
+│   │ │ │ │ │ └─[2] : ReturnVoidNode
+│   │ │ │ │ │   ├─retToken : Token{ sym=RETURN lexeme=return line=5 column=8 }
+│   │ │ │ │ │   └─parent : null
+│   │ │ │ │ └─parent : null
+│   │ │ │ ├─test : Label{ lbl=lbl0 }
+│   │ │ │ ├─endLoop : Label{ lbl=lbl1 }
+│   │ │ │ └─parent : null
+│   │ │ └─[1] : ReturnExprNode
+│   │ │   ├─expr : Term
+│   │ │   │ ├─temporary : null
+│   │ │   │ ├─token : Token{ sym=NUM lexeme=1 line=7 column=11 }
+│   │ │   │ ├─type : null
+│   │ │   │ ├─unique_id : n1
+│   │ │   │ └─parent : null
+│   │ │   ├─retToken : Token{ sym=RETURN lexeme=return line=7 column=4 }
+│   │ │   └─parent : null
+│   │ └─parent : null
+│   ├─lbl : Label{ lbl=lbl2 }
+│   └─parent : null
+├─globals : List<VardeclNode> with 0 elements
+└─parent : null

@@ -22,10 +22,18 @@ public static class Terminals
     public static string TerminalSpec = @"
 
         VAR :: var\b
-        TYPE :: \b(int|float|string)\b
+        TYPE :: \b(int|float|string|bool)\b
+        CLASS :: class\b
+        NEWOP :: \bnew\b
+        THIS :: this\b
+        CASTOP :: as
         FUNCDEF :: func
         RETURN :: return
         WHILE :: while
+        BREAK :: break
+        CONTINUE :: continue
+        REPEAT :: repeat
+        UNTIL :: until
         FNUM :: ((\d*\.\d+)|(\d+([eE][-+]?\d+))|(\d*\.\d*\d+([eE][-+]?\d+)))\b
         NUM :: \d+\b
         IF :: if
@@ -37,7 +45,7 @@ public static class Terminals
         RPAREN :: \)
         LBRACK :: \[
         RBRACK :: \]
-        WHITESPACE :: [\s\r\n]+(\/\/.*)[\s\r\n]*|[\s\r\n]+
+        WHITESPACE :: [\s\r\n]*(\/\/.*)[\s\r\n]*|[\s\r\n]+
         POWOP :: \*\*
         MULOP :: \*|\/|%
         INCOP :: \+{2}

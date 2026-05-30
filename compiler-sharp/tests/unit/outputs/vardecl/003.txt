@@ -1,0 +1,1 @@
+Variable x on line 2 is a parameter declared on line 1 and is of type int

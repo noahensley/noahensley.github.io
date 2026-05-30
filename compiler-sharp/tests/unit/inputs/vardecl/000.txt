@@ -1,0 +1,7 @@
+var x: int
+func foo(y: int) {
+    var z: int
+    x = y + z
+    w = 2
+}
+var w: int

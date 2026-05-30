@@ -8,7 +8,7 @@
  *      February 4, 2026
  *      February 16, 2026
  */
-
+using ASM;
 /// <summary>
 /// Abstract base class for binary operator nodes in the expression tree.
 /// </summary>
@@ -82,8 +82,8 @@ public abstract class BinaryOperator : ExprNode
     /// and DotNode which have custom type inference logic.
     /// </para>
     /// </remarks>
-    /// <exception cref="System.Exception">
-    /// Throws an error via <see cref="Utils.error"/> if:
+    /// <exception cref="InvalidBinaryOperatorType">
+    /// Reported via <see cref="Utils.error"/> when:
     /// <list type="bullet">
     /// <item>The left and right operand types do not match</item>
     /// <item>No legal operand combination matches the actual operand type</item>
@@ -108,5 +108,35 @@ public abstract class BinaryOperator : ExprNode
             }
         }
         Utils.error(new InvalidBinaryOperatorType($"Unsupported type for binary operator {this.token}"));
+    }
+
+    public override void genCode()
+    {
+        if(this.left.type == VarType.Int || this.left.type == VarType.BoolConst)
+        {
+            Asm.emit(new Comment($"*** generated binary int/boolconst exprs for {this.type} ***"));
+            this.left.genCode();
+            this.right.genCode();
+            this.left.getResultLocation()!.copyToRegister(Register.rax, null);
+            this.right.getResultLocation()!.copyToRegister(Register.rbx, null);
+        } 
+        else if (this.left.type == VarType.Float)
+        {
+            Asm.emit(new Comment("*** generated binary float exprs ***"));
+            this.left.genCode();
+            this.right.genCode();           
+            this.left.getResultLocation()!.copyToRegister(Register.xmm0, StorageClass.STATIC);
+            this.right.getResultLocation()!.copyToRegister(Register.xmm1, StorageClass.STATIC);
+        }
+        else if (this.left.type == VarType.StringConst)
+        {
+            Asm.emit(new Comment("*** generated binary string exprs ***"));
+            this.left.genCode();
+            this.right.genCode();           
+            this.left.getResultLocation()!.copyToRegister(Register.rcx, null);
+            this.right.getResultLocation()!.copyToRegister(Register.rdx, null);
+        }
+        else
+            throw new NotImplementedException();
     }
 }

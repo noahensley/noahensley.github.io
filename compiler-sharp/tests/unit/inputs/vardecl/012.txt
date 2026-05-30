@@ -1,0 +1,3 @@
+func foo(foo: int){
+	foo+1
+}

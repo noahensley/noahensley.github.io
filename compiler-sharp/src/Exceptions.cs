@@ -290,3 +290,111 @@ public class InvalidToken : Exception
     /// <param name="msg">A message describing the invalid token.</param>
     public InvalidToken(string msg) : base(msg) {}
 }
+
+/// <summary>
+/// Exception thrown when a variable name cannot be found in any SymbolTable scopes.
+/// </summary>
+/// <remarks>
+/// See <see cref="SymbolTable.lookup"/> for usage.
+/// </remarks>
+public class UndeclaredVariable : Exception
+{
+    /// <summary>
+    /// Initializes a new instance of <see cref="UndeclaredVariable"/> with the specified error message.
+    /// </summary>
+    /// <param name="msg">A message describing the undeclared variable.</param>
+    public UndeclaredVariable(string msg) : base(msg) {}
+}
+
+/// <summary>
+/// Exception thrown when the top-level (global) scope is removed.
+/// </summary>
+/// <remarks>
+/// See <see cref="SymbolTable.removeScope"/> for usage.
+/// </remarks>
+public class InvalidScopeRemoval : Exception
+{
+    /// <summary>
+    /// Initializes a new instance of <see cref="InvalidScopeRemoval"/> with the specified error message.
+    /// </summary>
+    /// <param name="msg">A message describing the invalid scope removal attempt.</param>
+    public InvalidScopeRemoval(string msg) : base(msg) {}
+}
+
+/// <summary>
+/// Exception thrown when declared variable already exists.
+/// </summary>
+/// <remarks>
+/// See <see cref="SymbolTable.declare(Token, VarType, VarLocation)"/> for usage.
+/// </remarks>
+public class DuplicateDeclaration : Exception
+{
+    /// <summary>
+    /// Initializes a new instance of <see cref="DuplicateDeclaration"/> with the specified error message.
+    /// </summary>
+    /// <param name="msg">A message describing the duplicate declaration.</param>
+    public DuplicateDeclaration(string msg) : base(msg) {}
+}
+
+/// <summary>
+/// Exception thrown when invoked function parameter count does not match the function declaration.
+/// </summary>
+/// <remarks>
+/// See <see cref="FunccallNode"/> for usage.
+/// </remarks>
+public class ParameterMismatch : Exception
+{
+    /// <summary>
+    /// Initializes a new instance of <see cref="ParameterMismatch"/> with the specified error message.
+    /// </summary>
+    /// <param name="msg">A message describing the parameter mismatch.</param>
+    public ParameterMismatch(string msg) : base(msg) {}
+}
+
+/// <summary>
+/// Exception thrown when function return type does not match the function declaration.
+/// </summary>
+/// <remarks>
+/// See <see cref="FuncdefNode.typeCheck"/> for usage.
+/// </remarks>
+public class ReturnMismatch : Exception
+{
+    /// <summary>
+    /// Initializes a new instance of <see cref="ReturnMismatch"/> with the specified error message.
+    /// </summary>
+    /// <param name="msg">A message describing the return mismatch.</param>
+    public ReturnMismatch(string msg) : base(msg) {}
+}
+
+public class UndeclaredClass : Exception
+{
+    /// <summary>
+    /// Initializes a new instance of <see cref="UndeclaredClass"/> with the specified error message.
+    /// </summary>
+    /// <param name="msg">A message describing the undeclared class.</param>
+    public UndeclaredClass(string msg) : base(msg) {}
+}
+
+
+public class UndeclaredFunction : Exception
+{
+    /// <summary>
+    /// Initializes a new instance of <see cref="UndeclaredFunction"/> with the specified error message.
+    /// </summary>
+    /// <param name="msg">A message describing the undeclared function.</param>
+    public UndeclaredFunction(string msg) : base(msg) {}
+}
+
+public class InvalidMember : Exception
+{
+    /// <summary>
+    /// Initializes a new instance of <see cref="UndeclaredFunction"/> with the specified error message.
+    /// </summary>
+    /// <param name="msg">A message describing the invalid member.</param>
+    public InvalidMember(string msg) : base(msg) {}
+}
+
+public class InvalidParameter : Exception
+{
+    public InvalidParameter(string msg) : base(msg) {}
+}

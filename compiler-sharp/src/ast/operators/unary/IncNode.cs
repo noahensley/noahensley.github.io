@@ -42,8 +42,16 @@ public class IncNode : UnaryOperator
     {
     }
 
+    public override void setType()
+    {
+        base.setType();
+    }
+
+    /// <summary>
+    /// Type validation for this node. Not yet implemented.
+    /// </summary>
     public override void typeCheck()
     {
-        return; // not implemented
+        return; //not implemented
     }
 }

@@ -1,0 +1,17 @@
+﻿ProgramNode
+├─funcs : List<FuncdefNode> with 1 element
+│ └─[0] : FuncdefNode
+│   ├─maxTemporaries : 0
+│   ├─info : VarInfo
+│   │ ├─token : Token{ sym=ID lexeme=main line=1 column=5 }
+│   │ ├─type : FuncType
+│   │ │ ├─returnType : VoidType
+│   │ │ └─parameters : List<ParamInfo> with 0 elements
+│   │ └─location : GlobalLocation
+│   ├─stmts : StmtsNode
+│   │ ├─stmts : List<StmtNode> with 0 elements
+│   │ └─parent : null
+│   ├─lbl : Label{ lbl=lbl0 }
+│   └─parent : null
+├─globals : List<VardeclNode> with 0 elements
+└─parent : null

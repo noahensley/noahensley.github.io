@@ -1,0 +1,6 @@
+func main(){
+	var s : string
+	var x: int
+	s = x as int as float 
+}
+

@@ -1,0 +1,4 @@
+Variable x on line 4 is a global declared on line 1 and is of type int
+Variable y on line 4 is a parameter declared on line 2 and is of type int
+Variable z on line 4 is a local declared on line 3 and is of type int
+Variable w on line 5 is a global declared on line 7 and is of type int

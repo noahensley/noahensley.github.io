@@ -1,0 +1,86 @@
+﻿ProgramNode
+├─funcs : List<FuncdefNode> with 1 element
+│ └─[0] : FuncdefNode
+│   ├─maxTemporaries : 0
+│   ├─info : VarInfo
+│   │ ├─token : Token{ sym=ID lexeme=main line=1 column=5 }
+│   │ ├─type : FuncType
+│   │ │ ├─returnType : VoidType
+│   │ │ └─parameters : List<ParamInfo> with 0 elements
+│   │ └─location : GlobalLocation
+│   ├─stmts : StmtsNode
+│   │ ├─stmts : List<StmtNode> with 4 elements
+│   │ │ ├─[0] : VardeclNode
+│   │ │ │ ├─varname : Token{ sym=ID lexeme=x line=2 column=8 }
+│   │ │ │ ├─vartype : Token{ sym=TYPE lexeme=int line=2 column=11 }
+│   │ │ │ └─parent : null
+│   │ │ ├─[1] : VardeclNode
+│   │ │ │ ├─varname : Token{ sym=ID lexeme=y line=3 column=8 }
+│   │ │ │ ├─vartype : Token{ sym=TYPE lexeme=int line=3 column=11 }
+│   │ │ │ └─parent : null
+│   │ │ ├─[2] : VardeclNode
+│   │ │ │ ├─varname : Token{ sym=ID lexeme=z line=4 column=8 }
+│   │ │ │ ├─vartype : Token{ sym=TYPE lexeme=int line=4 column=11 }
+│   │ │ │ └─parent : null
+│   │ │ └─[3] : ReturnExprNode
+│   │ │   ├─expr : AddNode
+│   │ │   │ ├─left : PreDecNode
+│   │ │   │ │ ├─term : Variable
+│   │ │   │ │ │ ├─temporary : null
+│   │ │   │ │ │ ├─token : Token{ sym=ID lexeme=x line=5 column=14 }
+│   │ │   │ │ │ ├─type : null
+│   │ │   │ │ │ ├─unique_id : n0
+│   │ │   │ │ │ └─parent : null
+│   │ │   │ │ ├─temporary : null
+│   │ │   │ │ ├─token : Token{ sym=PREDECOP lexeme=-- line=5 column=12 }
+│   │ │   │ │ ├─type : null
+│   │ │   │ │ ├─unique_id : n1
+│   │ │   │ │ └─parent : null
+│   │ │   │ ├─right : MulNode
+│   │ │   │ │ ├─left : PreDecNode
+│   │ │   │ │ │ ├─term : Variable
+│   │ │   │ │ │ │ ├─temporary : null
+│   │ │   │ │ │ │ ├─token : Token{ sym=ID lexeme=y line=5 column=22 }
+│   │ │   │ │ │ │ ├─type : null
+│   │ │   │ │ │ │ ├─unique_id : n2
+│   │ │   │ │ │ │ └─parent : null
+│   │ │   │ │ │ ├─temporary : null
+│   │ │   │ │ │ ├─token : Token{ sym=PREDECOP lexeme=-- line=5 column=20 }
+│   │ │   │ │ │ ├─type : null
+│   │ │   │ │ │ ├─unique_id : n3
+│   │ │   │ │ │ └─parent : null
+│   │ │   │ │ ├─right : IncNode
+│   │ │   │ │ │ ├─term : PreIncNode
+│   │ │   │ │ │ │ ├─term : Variable
+│   │ │   │ │ │ │ │ ├─temporary : null
+│   │ │   │ │ │ │ │ ├─token : Token{ sym=ID lexeme=z line=5 column=28 }
+│   │ │   │ │ │ │ │ ├─type : null
+│   │ │   │ │ │ │ │ ├─unique_id : n4
+│   │ │   │ │ │ │ │ └─parent : null
+│   │ │   │ │ │ │ ├─temporary : null
+│   │ │   │ │ │ │ ├─token : Token{ sym=PREINCOP lexeme=++ line=5 column=26 }
+│   │ │   │ │ │ │ ├─type : null
+│   │ │   │ │ │ │ ├─unique_id : n5
+│   │ │   │ │ │ │ └─parent : null
+│   │ │   │ │ │ ├─temporary : null
+│   │ │   │ │ │ ├─token : Token{ sym=INCOP lexeme=++ line=5 column=30 }
+│   │ │   │ │ │ ├─type : null
+│   │ │   │ │ │ ├─unique_id : n6
+│   │ │   │ │ │ └─parent : null
+│   │ │   │ │ ├─temporary : null
+│   │ │   │ │ ├─token : Token{ sym=MULOP lexeme=* line=5 column=24 }
+│   │ │   │ │ ├─type : null
+│   │ │   │ │ ├─unique_id : n7
+│   │ │   │ │ └─parent : null
+│   │ │   │ ├─temporary : null
+│   │ │   │ ├─token : Token{ sym=ADDOP lexeme=+ line=5 column=17 }
+│   │ │   │ ├─type : null
+│   │ │   │ ├─unique_id : n8
+│   │ │   │ └─parent : null
+│   │ │   ├─retToken : Token{ sym=RETURN lexeme=return line=5 column=4 }
+│   │ │   └─parent : null
+│   │ └─parent : null
+│   ├─lbl : Label{ lbl=lbl0 }
+│   └─parent : null
+├─globals : List<VardeclNode> with 0 elements
+└─parent : null

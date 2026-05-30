@@ -1,0 +1,19 @@
+graph program {
+n8 [label="|"]
+n0 [label="1"]
+n7 [label="<<"]
+n1 [label="2"]
+n6 [label="+"]
+n2 [label="3"]
+n5 [label="*"]
+n3 [label="4"]
+n4 [label="5"]
+n8 -- n0
+n8 -- n7
+n7 -- n1
+n7 -- n6
+n6 -- n2
+n6 -- n5
+n5 -- n3
+n5 -- n4
+}

@@ -1,0 +1,6 @@
+// {"returns": "126", "output": "4d2"}
+    func main() : int {
+        putv(1234,16)
+        return 126
+    }
+

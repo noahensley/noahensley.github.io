@@ -1,0 +1,6 @@
+// {"output": null, "compiles": false}
+    func main(): int {
+        put2(65,65.1)
+        return 123
+    }
+

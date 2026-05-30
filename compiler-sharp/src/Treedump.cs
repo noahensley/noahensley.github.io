@@ -30,13 +30,21 @@ public class Treedump {
     /// Internal node representation for tree structure.
     /// </summary>
     private class Node{
-        /// <summary>Label text for the node.</summary>
+        /// <summary>
+        /// Label text for the node.
+        /// </summary>
         public string label;
-        /// <summary>Unique identifier for the node.</summary>
+        /// <summary>
+        /// Unique identifier for the node.
+        /// </summary>
         public string unique;
-        /// <summary>Whether the node represents a null value.</summary>
+        /// <summary>
+        /// Whether the node represents a null value.
+        /// </summary>
         public bool isNull;
-        /// <summary>Child nodes.</summary>
+        /// <summary>
+        /// Child nodes.
+        /// </summary>
         public List<Node> children = new();
         private static int counter=0;
         
@@ -97,13 +105,13 @@ public class Treedump {
         var root = reflect(sw,obj, null, new List<bool>());
         outs.WriteLine("graph d {");
         outs.WriteLine("node [ shape=rectangle, fontfamily=helvetica]");
-        walk(root, (Node n) => {
+        walkPreOrder(root, (Node n) => {
             outs.Write($"{n.unique} [label=\"{escape(n.label)}\"");
             if( n.isNull )
                 outs.Write(" style=filled fillcolor=grey");
             outs.WriteLine("];");
         });
-        walk(root, (Node n) => {
+        walkPreOrder(root, (Node n) => {
             foreach(var c in n.children){
                 outs.WriteLine($"{n.unique} -- {c.unique};");
             }
@@ -139,10 +147,10 @@ public class Treedump {
     /// </summary>
     /// <param name="n">The node to start from.</param>
     /// <param name="f">The action to apply to each node.</param>
-    private static void walk(Node n, Action<Node> f){
+    private static void walkPreOrder(Node n, Action<Node> f){
         f(n);
         foreach(var c in n.children){
-            walk(c,f);
+            walkPreOrder(c,f);
         }
     }
 

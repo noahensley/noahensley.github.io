@@ -8,23 +8,23 @@
  *      February 16, 2026
  */
 
+using ASM;
+
 /// <summary>
-/// Represents a boolean logical "not" operation in the expression tree.
+/// Represents a boolean NOT operation in the expression tree.
 /// </summary>
 /// <remarks>
-/// Handles BOOLNOTOP token "not".
+/// Handles the BOOLNOTOP token <c>not</c>.
 /// </remarks>
 public class BoolNotNode : UnaryOperator
 {
     /// <summary>
-    /// Defines the valid operand type combinations for boolean not operator not (NOT)
+    /// Defines the valid operand type combinations for the boolean NOT operator.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// Boolean not (NOT) operations are legal for the following type pairings:
-    /// </para>
+    /// Boolean NOT is legal for the following type:
     /// <list type="bullet">
-    /// <item>[not] Bool → Bool</item>
+    /// <item>not Bool → Bool</item>
     /// </list>
     /// </remarks>
     private static readonly LegalOperand[] legalBoolNotOperands = 
@@ -33,16 +33,30 @@ public class BoolNotNode : UnaryOperator
     ];
 
     /// <summary>
-    /// Creates a new boolean logical "not" operation node.
+    /// Creates a new boolean NOT node.
     /// </summary>
-    /// <param name="tok">The BOOLNOTOP token (not).</param>
+    /// <param name="tok">The BOOLNOTOP token (<c>not</c>).</param>
     /// <param name="term">The single operand expression.</param>
     public BoolNotNode(Token tok, ExprNode term) : base(tok, term, legalBoolNotOperands)
     {
     }
 
+    /// <summary>
+    /// Type validation for boolean NOT nodes. Not yet implemented.
+    /// </summary>
     public override void typeCheck()
     {
         return; // not implemented
+    }
+
+    public override void genCode()
+    {
+        base.genCode();
+        Asm.emit(
+            new Comment("*** generated BoolNotNode expr ***"),
+            new OpCmpRegImm(Register.rax, 0),
+            new OpSetCC("e")
+        );
+        this.getResultLocation()!.copyFromRegister(Register.rax, StorageClass.STATIC);
     }
 }

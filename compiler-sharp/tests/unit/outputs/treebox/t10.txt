@@ -1,0 +1,31 @@
+﻿ProgramNode
+├─funcs : List<FuncdefNode> with 1 element
+│ └─[0] : FuncdefNode
+│   ├─maxTemporaries : 0
+│   ├─info : VarInfo
+│   │ ├─token : Token{ sym=ID lexeme=main line=1 column=5 }
+│   │ ├─type : FuncType
+│   │ │ ├─returnType : VoidType
+│   │ │ └─parameters : List<ParamInfo> with 0 elements
+│   │ └─location : GlobalLocation
+│   ├─stmts : StmtsNode
+│   │ ├─stmts : List<StmtNode> with 1 element
+│   │ │ └─[0] : WhileNode
+│   │ │   ├─clause : Token{ sym=WHILE lexeme=while line=2 column=4 }
+│   │ │   ├─condition : Term
+│   │ │   │ ├─temporary : null
+│   │ │   │ ├─token : Token{ sym=NUM lexeme=1 line=2 column=10 }
+│   │ │   │ ├─type : null
+│   │ │   │ ├─unique_id : n0
+│   │ │   │ └─parent : null
+│   │ │   ├─stmts : StmtsNode
+│   │ │   │ ├─stmts : List<StmtNode> with 0 elements
+│   │ │   │ └─parent : null
+│   │ │   ├─test : Label{ lbl=lbl0 }
+│   │ │   ├─endLoop : Label{ lbl=lbl1 }
+│   │ │   └─parent : null
+│   │ └─parent : null
+│   ├─lbl : Label{ lbl=lbl2 }
+│   └─parent : null
+├─globals : List<VardeclNode> with 0 elements
+└─parent : null

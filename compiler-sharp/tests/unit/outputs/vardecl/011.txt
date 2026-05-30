@@ -1,0 +1,2 @@
+Variable x on line 3 is a parameter declared on line 2 and is of type int
+Variable y on line 3 is a parameter declared on line 2 and is of type int
