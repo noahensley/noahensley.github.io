@@ -71,7 +71,7 @@ function colorizeAsm(text) {
                 .replace(/(%\w+)/g, '<span class="asm-reg">$1</span>')
                 .replace(/^(\s*)(\w+)(\s)/, '$1<span class="asm-op">$2</span>$3');
         })
-        .join('\n');
+        .join('<br>');
 }
 
 function escHtml(s) {

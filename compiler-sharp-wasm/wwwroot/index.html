@@ -236,8 +236,19 @@ h3{font-family:'Barlow',sans-serif;font-weight:700;font-size:1.4rem;margin-botto
 /* CONTACT */
 #contact{background:var(--bg);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
 .demo-box{background:#1e1e1e;border:1px solid #454545;font-size:.8rem;}
-.panels{display:grid;grid-template-columns:1fr 1fr;min-height:360px;}
-.dpanel{border-right:1px solid #3c3c3c;display:flex;flex-direction:column;}
+.panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 360px;
+  overflow: hidden;   
+}
+.dpanel {
+  border-right: 1px solid #3c3c3c;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;   /* ← add this */
+  min-width: 0;       /* ← critical for grid children */
+}
 .dpanel:last-child{border-right:none;}
 .ph{
   background:#252526;border-bottom:1px solid #3c3c3c;
@@ -250,15 +261,79 @@ textarea{
   color:#cccccc;font-family:'IBM Plex Mono',monospace;
   font-size:.8rem;line-height:1.75;padding:.9rem;resize:none;width:100%;
 }
-.outarea{flex:1;padding:.9rem;overflow-y:auto;font-size:.76rem;line-height:1.8;background:#1e1e1e;display:flex;flex-direction:column;}
-.asm-out{font-family:'IBM Plex Mono',monospace;white-space:pre;font-size:.72rem;line-height:1.75;color:#cccccc;}
-.asm-out:not(.has-output){white-space:normal;display:flex;}
+.outarea {
+  flex: 1;
+  padding: .9rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  font-size: .76rem;
+  line-height: 1.8;
+  background: #1e1e1e;
+  display: flex;
+  flex-direction: column;
+}
+
+.asm-out {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .72rem;
+  line-height: 1.75;
+  color: #cccccc;
+  white-space: pre;         /* keep for proper ASM spacing */
+  overflow-x: auto;         /* scroll horizontally if a line is truly long */
+  word-break: normal;
+}
+
+/* Empty state */
+.asm-out.has-output {
+  display: block;
+  overflow: visible;   /* let the wrap handle clipping, not the container */
+  max-width: 100%;
+  width: 100%;
+}
+
+/* Contain any injected child spans/divs */
+.asm-out.has-output > * {
+  display: block;
+  white-space: pre;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* Has output: block so lines stack vertically */
+.asm-out.has-output {
+  display: block;
+  overflow-x: auto;
+}
 .asm-directive{color:#569cd6;}
 .asm-label{color:#4ec9b0;}
 .asm-op{color:#ce9178;}
 .asm-comment{color:#6a9955;font-style:italic;}
 .asm-reg{color:#9cdcfe;}
 .run-error{color:#f48771;font-family:'IBM Plex Mono',monospace;font-size:.74rem;white-space:pre-wrap;}
+/* See-more fold */
+.asm-content-wrap {
+  overflow: hidden;
+  overflow-x: auto;    /* horizontal scroll lives here instead */
+  transition: max-height .32s ease;
+}
+.asm-fold-btn {
+  display: block;
+  margin-top: .6rem;
+  padding: .3rem .8rem;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--cyan);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: .68rem;
+  cursor: pointer;
+  letter-spacing: .04em;
+  transition: border-color .2s, background .2s;
+  /* prevent the button itself from triggering overflow scroll */
+  position: relative;
+  z-index: 1;
+  will-change: auto;   /* removes the GPU layer causing flicker */
+}
+.asm-fold-btn:hover{border-color:var(--cyan);background:rgba(56,189,248,.06);}
 .tokrow{display:flex;align-items:center;gap:.7rem;padding:.12rem 0;border-bottom:1px solid rgba(26,34,53,.4);}
 .toktype{font-size:.62rem;padding:.08rem .4rem;min-width:78px;text-align:center;letter-spacing:.03em;}
 .TT-VAR,.TT-TYPE{background:rgba(167,139,250,.12);color:var(--purple);border:1px solid rgba(167,139,250,.2);}
@@ -445,7 +520,7 @@ footer span{color:var(--green);}
           <div class="stat"><div class="sv">1,300+</div><div class="sl">typecheck tests</div></div>
           <div class="stat"><div class="sv">22</div><div class="sl">operators supported</div></div>
           <div class="stat"><div class="sv">5</div><div class="sl">output modes</div></div>
-          <div class="stat"><div class="sv">int float string</div><div class="sl">type system</div></div>
+          <div class="stat"><div class="sv">int float string bool</div><div class="sl">type system</div></div>
         </div>
       </div>
     </div>
@@ -610,7 +685,7 @@ func main(): int {
 
         <div class="bnf-note">
           <em>Note:</em> every program must define a <em>main()</em> entry point.
-          Statements are newline-terminated — no semicolons required.
+          Statements are newline-terminated and do not require semicolons.
           Types are inferred within expressions but must be declared on
           function signatures and local variable declarations.
         </div>
@@ -700,11 +775,96 @@ func main(): int {
 
   // Reveal .fiu sections on scroll (fallback if portfolio.js not loaded)
   (function(){
-    var io = new IntersectionObserver(function(entries){
-      entries.forEach(function(e){ if(e.isIntersecting) e.target.classList.add('v'); });
-    },{threshold:0.08});
-    document.querySelectorAll('.fiu').forEach(function(el){ io.observe(el); });
-  })();
+      var io = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){ if(e.isIntersecting) e.target.classList.add('v'); });
+      },{threshold:0.08});
+      document.querySelectorAll('.fiu').forEach(function(el){ io.observe(el); });
+    })();
+
+    // ── ASM output: fix vertical layout + "see more" fold ──────────────────────
+    (function(){
+      var FOLD_AT = 30;
+      var asmOut = document.getElementById('asmOut');
+      var isExpanded = false;
+      var fullHeight = 0;
+      var clampH = 0;
+
+      function applyFold(el) {
+        // Stop observing while we mutate the DOM
+        observer.disconnect();
+
+        var oldBtn = el.querySelector('.asm-fold-btn');
+        if (oldBtn) oldBtn.remove();
+        var oldWrap = el.querySelector('.asm-content-wrap');
+        if (oldWrap) {
+          while (oldWrap.firstChild) el.insertBefore(oldWrap.firstChild, oldWrap);
+          oldWrap.remove();
+        }
+
+        var brCount = el.querySelectorAll('br').length;
+        var lineCount = brCount > 0 ? brCount + 1 : 1;
+
+        if (lineCount <= FOLD_AT) {
+          reconnect();
+          return;
+        }
+
+        var wrap = document.createElement('div');
+        wrap.className = 'asm-content-wrap';
+        while (el.firstChild) wrap.appendChild(el.firstChild);
+        el.appendChild(wrap);
+
+        fullHeight = wrap.scrollHeight;
+        var lh = parseFloat(window.getComputedStyle(el).lineHeight) || 18;
+        clampH = lh * FOLD_AT;
+
+        wrap.style.overflow = 'hidden';
+        wrap.style.maxHeight = (isExpanded ? fullHeight : clampH) + 'px';
+
+        var remaining = lineCount - FOLD_AT;
+        var btn = document.createElement('button');
+        btn.className = 'asm-fold-btn';
+
+        function updateLabel() {
+          btn.textContent = isExpanded
+            ? '\u25b2  show less'
+            : '\u25bc  ' + remaining + ' more line' + (remaining === 1 ? '' : 's');
+        }
+        updateLabel();
+
+        btn.onclick = function() {
+          isExpanded = !isExpanded;
+          wrap.style.maxHeight = (isExpanded ? fullHeight : clampH) + 'px';
+          updateLabel();
+        };
+
+        el.appendChild(btn);
+
+        // Resume observing for the next compile
+        reconnect();
+      }
+
+      function reconnect() {
+        observer.observe(asmOut, { childList: true, subtree: true });
+      }
+
+      var timer = null;
+      var observer = new MutationObserver(function() {
+        clearTimeout(timer);
+        timer = setTimeout(function() {
+          var hasEmpty = !!asmOut.querySelector('.empty-state');
+          if (!hasEmpty && asmOut.children.length > 0) {
+            asmOut.classList.add('has-output');
+            applyFold(asmOut);
+          } else {
+            asmOut.classList.remove('has-output');
+            isExpanded = false;
+          }
+        }, 60);
+      });
+
+      reconnect();
+    })();
 </script>
 
 <!-- 1. Boot WASM runtime — CompilerBridge registers window.compiler when ready -->
