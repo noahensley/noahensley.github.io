@@ -483,7 +483,7 @@ footer span{color:var(--green);}
     </h1>
     <p class="hero-sub">
       I'm Noah, a Computer Engineering graduate developing a compiler in C#. The compiler consists of a custom lexer, 
-      parser, type checker, and code generator, with over 1,300 unit tests covering language features and type validation.
+      parser, type checker, and code generator, with over 1,500 unit tests covering language features and type validation.
     </p>
     <div class="btns">
       <a href="#demo" class="btn btn-p">&#9654; Try the Demo</a>
@@ -619,7 +619,7 @@ footer span{color:var(--green);}
              <span class="bnf-op">|</span>  <span class="bnf-t">while</span> <span class="bnf-nt">&lt;expr&gt;</span> <span class="bnf-nt">&lt;block&gt;</span>
              <span class="bnf-op">|</span>  <span class="bnf-nt">&lt;func-call&gt;</span>
 
-<span class="bnf-nt">&lt;var-decl&gt;</span>    <span class="bnf-op">::=</span> <span class="bnf-nt">&lt;type&gt;</span> <span class="bnf-nt">&lt;id&gt;</span> <span class="bnf-t">=</span> <span class="bnf-nt">&lt;expr&gt;</span>
+<span class="bnf-nt">&lt;var-decl&gt;</span>    <span class="bnf-op">::=</span> <span class="bnf-t">var</span> <span class="bnf-nt">&lt;id&gt;</span> <span class="bnf-t">:</span> <span class="bnf-nt">&lt;type&gt;</span>
 <span class="bnf-nt">&lt;assign&gt;</span>      <span class="bnf-op">::=</span> <span class="bnf-nt">&lt;id&gt;</span> <span class="bnf-t">=</span> <span class="bnf-nt">&lt;expr&gt;</span>
 <span class="bnf-nt">&lt;elif-chain&gt;</span>  <span class="bnf-op">::=</span> <span class="bnf-t">elif</span> <span class="bnf-nt">&lt;expr&gt;</span> <span class="bnf-nt">&lt;block&gt;</span> <span class="bnf-nt">&lt;elif-chain&gt;</span><span class="bnf-op">?</span>
 <span class="bnf-nt">&lt;else&gt;</span>        <span class="bnf-op">::=</span> <span class="bnf-t">else</span> <span class="bnf-nt">&lt;block&gt;</span></div>
@@ -687,10 +687,12 @@ func main(): int {
         </div>
 
         <div class="bnf-note">
-          <em>Note:</em> every program must define a <em>main()</em> entry point.
-          Statements are newline-terminated and do not require semicolons.
+          <em>NOTE:</em><br> 
+          Every program must define a <em>main()</em> entry point.<br> 
+          Statements are newline-terminated and do not require semicolons.<br> 
           Types are inferred within expressions but must be declared on
-          function signatures and local variable declarations.
+          function signatures and local variable declarations.<br> 
+          Does not support variable inline initialization.
         </div>
       </div>
 
